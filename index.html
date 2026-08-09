@@ -280,6 +280,42 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 }
 .dismiss-all-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
 
+/* CIERRE DE CAJA */
+.caja-form-row{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;
+}
+.caja-form-row input, .caja-form-row select{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 11px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;
+}
+.caja-form-row input[type="text"], .caja-form-row input[type="number"]{flex:1;min-width:120px;}
+.caja-form-row input:focus, .caja-form-row select:focus{outline:none;border-color:var(--administracion);}
+.caja-totales{
+  display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text-dim);
+}
+.caja-totales b{color:var(--text);}
+.caja-resumen{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:14px;
+}
+.caja-resumen .r-row{
+  display:flex;justify-content:space-between;padding:6px 0;font-size:13.5px;
+  border-bottom:1px solid var(--border);
+}
+.caja-resumen .r-row:last-child{border-bottom:none;}
+.caja-resumen .r-row.total{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;color:var(--contabilidad);}
+.small-del-btn{
+  font-family:'Inter',sans-serif;font-size:11px;color:var(--text-dimmer);
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;
+}
+.small-del-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+.status-toggle-btn{
+  font-family:'Inter',sans-serif;font-size:11px;
+  background:transparent;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--text-dim);
+}
+.status-toggle-btn:hover{border-color:var(--contabilidad);color:var(--contabilidad);}
+
 @media (max-width:520px){
   .status-row{grid-template-columns:110px 1fr 54px;}
   .admin-table{display:block;overflow-x:auto;}
@@ -298,6 +334,7 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <span class="who">👤 <span id="userBarName"></span></span>
       <span class="role-badge" id="userBarRole"></span>
       <button class="bell-btn" id="adminToggleBtn" style="display:none;">⚙️ Panel de Admin</button>
+      <button class="bell-btn" id="cajaToggleBtn" style="display:none;">💰 Cierre de Caja</button>
       <button class="bell-btn" id="logoutBtn">Cerrar sesión</button>
     </div>
 
@@ -334,7 +371,7 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
     <div id="adminTableWrap"></div>
 
     <h3 class="admin-subheading">📊 Seguimiento de estado por categoría</h3>
-    <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 5 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
+    <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 4 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
     <div id="categoryTrackingWrap"></div>
 
     <h3 class="admin-subheading">🚩 Actividad sospechosa</h3>
@@ -344,6 +381,56 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 
     <h3 class="admin-subheading">Historial de pagos</h3>
     <div id="paymentsHistory"></div>
+  </div>
+
+  <div id="cajaView" style="display:none;">
+    <div class="admin-header">
+      <h2>💰 Cierre de Caja</h2>
+      <button class="bell-btn" id="cajaBackBtn">← Volver al mall</button>
+    </div>
+    <p class="sub" style="margin-bottom:16px;">Reparto entre los dos dueños: Meds/Tech se dividen 50/50, la Ropa es 100% para quien la aportó.</p>
+
+    <h3 class="admin-subheading">Nombres de los dueños</h3>
+    <div class="caja-form-row">
+      <input type="text" id="ownerAName" placeholder="Dueño A">
+      <input type="text" id="ownerBName" placeholder="Dueño B">
+      <button class="pay-btn" id="saveOwnerNamesBtn">Guardar nombres</button>
+    </div>
+
+    <h3 class="admin-subheading">📦 Abastecimiento (Medicamentos / Tecnología)</h3>
+    <div class="caja-form-row">
+      <select id="abastCategoria"><option value="Medicamentos">Medicamentos</option><option value="Tecnología">Tecnología</option></select>
+      <select id="abastDueno"></select>
+      <input type="number" id="abastMonto" placeholder="Monto $">
+      <input type="text" id="abastNotas" placeholder="Notas (opcional)">
+      <button class="pay-btn" id="addAbastBtn">Agregar</button>
+    </div>
+    <div id="abastTotales" class="caja-totales"></div>
+    <div id="abastTableWrap"></div>
+
+    <h3 class="admin-subheading">👕 Inventario de Ropa</h3>
+    <div class="caja-form-row">
+      <input type="text" id="ropaDesc" placeholder="Descripción de la prenda">
+      <select id="ropaDueno"></select>
+      <input type="number" id="ropaPrecio" placeholder="Precio venta $">
+      <input type="text" id="ropaNotas" placeholder="Notas (opcional)">
+      <button class="pay-btn" id="addRopaBtn">Agregar</button>
+    </div>
+    <div id="ropaTotales" class="caja-totales"></div>
+    <div id="ropaTableWrap"></div>
+
+    <h3 class="admin-subheading">💵 Caja registradora</h3>
+    <div class="caja-form-row">
+      <input type="number" id="cajaActualInput" placeholder="Monto actual en caja">
+      <button class="pay-btn" id="saveCajaBtn">Actualizar</button>
+    </div>
+
+    <h3 class="admin-subheading">📊 Reparto sugerido</h3>
+    <div id="cajaResumen" class="caja-resumen"></div>
+    <button class="dismiss-all-btn" id="cerrarCajaBtn" style="border-color:var(--contabilidad);color:var(--contabilidad);">Registrar reparto y reiniciar</button>
+
+    <h3 class="admin-subheading">Historial de repartos</h3>
+    <div id="cajaHistorial"></div>
   </div>
 
   <footer>Datos recopilados por la comunidad · Última actualización manual</footer>
@@ -963,6 +1050,7 @@ auth.onAuthStateChanged(async (user)=>{
   const overlay = document.getElementById('authOverlay');
   const userBar = document.getElementById('userBar');
   const adminToggleBtn = document.getElementById('adminToggleBtn');
+  const cajaToggleBtn = document.getElementById('cajaToggleBtn');
   if(user){
     let profile = null;
     try{
@@ -979,6 +1067,7 @@ auth.onAuthStateChanged(async (user)=>{
     roleBadge.textContent = currentUser.role === 'owner' ? '★ Dueño' : 'Empleado';
     roleBadge.classList.toggle('owner', currentUser.role === 'owner');
     adminToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
+    cajaToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
     userBar.style.display = 'flex';
     overlay.style.display = 'none';
     startAppOnce();
@@ -988,6 +1077,7 @@ auth.onAuthStateChanged(async (user)=>{
     overlay.style.display = 'flex';
     document.getElementById('mainView').style.display = '';
     document.getElementById('adminView').style.display = 'none';
+    document.getElementById('cajaView').style.display = 'none';
   }
 });
 
@@ -1007,11 +1097,11 @@ function fmtMoney(n){
   return '$' + (n||0).toLocaleString('es-AR');
 }
 
-// Calcula el valor actual de una categoría aplicando el decaimiento de 5 puntos por hora, de forma paulatina
+// Calcula el valor actual de una categoría aplicando el decaimiento de 4 puntos por hora, de forma paulatina
 function computeDecayedValue(baseValue, baseTimestamp, now){
   if(typeof baseValue !== 'number' || !baseTimestamp) return 0;
   const hoursElapsed = (now - baseTimestamp) / (60*60*1000);
-  return Math.max(0, baseValue - 5 * hoursElapsed);
+  return Math.max(0, baseValue - 4 * hoursElapsed);
 }
 
 let adminUsersCache = {};
@@ -1200,6 +1290,7 @@ function renderPaymentsHistory(snap){
 
 document.getElementById('adminToggleBtn').addEventListener('click', ()=>{
   document.getElementById('mainView').style.display = 'none';
+  document.getElementById('cajaView').style.display = 'none';
   document.getElementById('adminView').style.display = 'block';
   startAdminListeners();
 });
@@ -1208,6 +1299,264 @@ document.getElementById('adminBackBtn').addEventListener('click', ()=>{
   document.getElementById('adminView').style.display = 'none';
   document.getElementById('mainView').style.display = '';
 });
+
+document.getElementById('cajaToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('mainView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('cajaView').style.display = 'block';
+  startCajaListeners();
+});
+
+document.getElementById('cajaBackBtn').addEventListener('click', ()=>{
+  document.getElementById('cajaView').style.display = 'none';
+  document.getElementById('mainView').style.display = '';
+});
+
+// ====== CIERRE DE CAJA ======
+
+let cajaStarted = false;
+let cajaConfig = {ownerAName:'Dueño A', ownerBName:'Dueño B'};
+let abastCache = {};
+let ropaCache = {};
+let cajaActualCache = {amount:0};
+let cajaHistorialCache = {};
+
+function fmtMoneyCaja(n){
+  return '$' + Math.round(n||0).toLocaleString('es-AR');
+}
+
+function fillDuenoSelects(){
+  const opts = `<option value="A">${cajaConfig.ownerAName}</option><option value="B">${cajaConfig.ownerBName}</option>`;
+  document.getElementById('abastDueno').innerHTML = opts;
+  document.getElementById('ropaDueno').innerHTML = opts;
+}
+
+function startCajaListeners(){
+  if(cajaStarted) return;
+  cajaStarted = true;
+
+  db.ref('caja/config').on('value', snap=>{
+    cajaConfig = snap.val() || {ownerAName:'Dueño A', ownerBName:'Dueño B'};
+    document.getElementById('ownerAName').value = cajaConfig.ownerAName;
+    document.getElementById('ownerBName').value = cajaConfig.ownerBName;
+    fillDuenoSelects();
+    renderAbastTable();
+    renderRopaTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/abastecimiento').on('value', snap=>{
+    abastCache = snap.val() || {};
+    renderAbastTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/ropa').on('value', snap=>{
+    ropaCache = snap.val() || {};
+    renderRopaTable();
+    renderCajaResumen();
+  });
+
+  db.ref('caja/actual').on('value', snap=>{
+    cajaActualCache = snap.val() || {amount:0};
+    document.getElementById('cajaActualInput').value = cajaActualCache.amount || '';
+    renderCajaResumen();
+  });
+
+  db.ref('caja/historial').orderByChild('timestamp').limitToLast(20).on('value', snap=>{
+    cajaHistorialCache = snap.val() || {};
+    renderCajaHistorial(snap);
+  });
+}
+
+document.getElementById('saveOwnerNamesBtn').addEventListener('click', ()=>{
+  const a = document.getElementById('ownerAName').value.trim() || 'Dueño A';
+  const b = document.getElementById('ownerBName').value.trim() || 'Dueño B';
+  db.ref('caja/config').set({ownerAName:a, ownerBName:b});
+});
+
+document.getElementById('addAbastBtn').addEventListener('click', ()=>{
+  const categoria = document.getElementById('abastCategoria').value;
+  const owner = document.getElementById('abastDueno').value;
+  const monto = Number(document.getElementById('abastMonto').value);
+  const notas = document.getElementById('abastNotas').value.trim();
+  if(!monto || monto<=0){ alert('Poné un monto válido.'); return; }
+  db.ref('caja/abastecimiento').push({
+    date: new Date().toISOString().slice(0,10),
+    categoria, owner, monto, notas,
+    settled: false,
+    timestamp: Date.now()
+  });
+  document.getElementById('abastMonto').value = '';
+  document.getElementById('abastNotas').value = '';
+});
+
+function renderAbastTable(){
+  const entries = Object.entries(abastCache).filter(([k,v])=>!v.settled);
+  const totalA = entries.filter(([k,v])=>v.owner==='A').reduce((s,[k,v])=>s+v.monto,0);
+  const totalB = entries.filter(([k,v])=>v.owner==='B').reduce((s,[k,v])=>s+v.monto,0);
+  document.getElementById('abastTotales').innerHTML = `
+    <span>Puesto por <b>${cajaConfig.ownerAName}</b>: ${fmtMoneyCaja(totalA)}</span>
+    <span>Puesto por <b>${cajaConfig.ownerBName}</b>: ${fmtMoneyCaja(totalB)}</span>
+  `;
+  const box = document.getElementById('abastTableWrap');
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin registros pendientes.</div>'; return; }
+  const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>`
+    <tr>
+      <td>${v.date}</td><td>${v.categoria}</td>
+      <td>${v.owner==='A'?cajaConfig.ownerAName:cajaConfig.ownerBName}</td>
+      <td>${fmtMoneyCaja(v.monto)}</td><td>${v.notas||''}</td>
+      <td><button class="small-del-btn" data-key="${key}">Borrar</button></td>
+    </tr>
+  `).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Categoría</th><th>Dueño</th><th>Monto</th><th>Notas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('¿Borrar este registro?')) db.ref('caja/abastecimiento/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+document.getElementById('addRopaBtn').addEventListener('click', ()=>{
+  const desc = document.getElementById('ropaDesc').value.trim();
+  const owner = document.getElementById('ropaDueno').value;
+  const precio = Number(document.getElementById('ropaPrecio').value);
+  const notas = document.getElementById('ropaNotas').value.trim();
+  if(!desc){ alert('Poné una descripción.'); return; }
+  if(!precio || precio<=0){ alert('Poné un precio válido.'); return; }
+  db.ref('caja/ropa').push({
+    date: new Date().toISOString().slice(0,10),
+    desc, owner, precio, notas,
+    status: 'Disponible',
+    timestamp: Date.now()
+  });
+  document.getElementById('ropaDesc').value = '';
+  document.getElementById('ropaPrecio').value = '';
+  document.getElementById('ropaNotas').value = '';
+});
+
+function renderRopaTable(){
+  const entries = Object.entries(ropaCache).filter(([k,v])=>v.status!=='Cobrado');
+  const vendidaA = entries.filter(([k,v])=>v.owner==='A' && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
+  const vendidaB = entries.filter(([k,v])=>v.owner==='B' && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
+  const stockA = entries.filter(([k,v])=>v.owner==='A' && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
+  const stockB = entries.filter(([k,v])=>v.owner==='B' && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
+  document.getElementById('ropaTotales').innerHTML = `
+    <span>Vendido ${cajaConfig.ownerAName}: ${fmtMoneyCaja(vendidaA)}</span>
+    <span>Vendido ${cajaConfig.ownerBName}: ${fmtMoneyCaja(vendidaB)}</span>
+    <span>Stock ${cajaConfig.ownerAName}: ${fmtMoneyCaja(stockA)}</span>
+    <span>Stock ${cajaConfig.ownerBName}: ${fmtMoneyCaja(stockB)}</span>
+  `;
+  const box = document.getElementById('ropaTableWrap');
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin prendas cargadas.</div>'; return; }
+  const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>`
+    <tr>
+      <td>${v.date}</td><td>${v.desc}</td>
+      <td>${v.owner==='A'?cajaConfig.ownerAName:cajaConfig.ownerBName}</td>
+      <td>${fmtMoneyCaja(v.precio)}</td><td>${v.status}</td><td>${v.notas||''}</td>
+      <td style="white-space:nowrap;">
+        <button class="status-toggle-btn" data-key="${key}" data-tostatus="${v.status==='Disponible'?'Vendido':'Disponible'}">${v.status==='Disponible'?'Marcar vendido':'Marcar disponible'}</button>
+        <button class="small-del-btn" data-key="${key}">Borrar</button>
+      </td>
+    </tr>
+  `).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Notas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.querySelectorAll('.status-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> db.ref('caja/ropa/'+btn.dataset.key+'/status').set(btn.dataset.tostatus));
+  });
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('¿Borrar esta prenda?')) db.ref('caja/ropa/'+btn.dataset.key).remove();
+    });
+  });
+}
+
+document.getElementById('saveCajaBtn').addEventListener('click', ()=>{
+  const val = Number(document.getElementById('cajaActualInput').value);
+  if(isNaN(val) || val<0){ alert('Poné un monto válido.'); return; }
+  db.ref('caja/actual').set({amount: val, updatedAt: Date.now()});
+});
+
+function computeCajaReparto(){
+  const abastEntries = Object.values(abastCache).filter(v=>!v.settled);
+  const totalA = abastEntries.filter(v=>v.owner==='A').reduce((s,v)=>s+v.monto,0);
+  const totalB = abastEntries.filter(v=>v.owner==='B').reduce((s,v)=>s+v.monto,0);
+  const totalAbast = totalA + totalB;
+  const justPart = totalAbast/2;
+  const debtBtoA = Math.max(0, justPart - totalB);
+  const debtAtoB = Math.max(0, justPart - totalA);
+
+  const ropaEntries = Object.values(ropaCache).filter(v=>v.status!=='Cobrado');
+  const vendidaA = ropaEntries.filter(v=>v.owner==='A' && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+  const vendidaB = ropaEntries.filter(v=>v.owner==='B' && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+
+  const cajaActual = cajaActualCache.amount || 0;
+  const cajaRestante = Math.max(0, cajaActual - vendidaA - vendidaB);
+  const gananciaA = cajaRestante/2;
+  const gananciaB = cajaRestante/2;
+
+  const retiroA = vendidaA + gananciaA + debtBtoA - debtAtoB;
+  const retiroB = vendidaB + gananciaB + debtAtoB - debtBtoA;
+
+  return {totalA, totalB, totalAbast, justPart, debtBtoA, debtAtoB, vendidaA, vendidaB, cajaActual, cajaRestante, gananciaA, gananciaB, retiroA, retiroB};
+}
+
+function renderCajaResumen(){
+  const box = document.getElementById('cajaResumen');
+  if(!box) return;
+  const r = computeCajaReparto();
+  const nameA = cajaConfig.ownerAName, nameB = cajaConfig.ownerBName;
+  box.innerHTML = `
+    <div class="r-row"><span>Ropa vendida a pagar a ${nameA}</span><span>${fmtMoneyCaja(r.vendidaA)}</span></div>
+    <div class="r-row"><span>Ropa vendida a pagar a ${nameB}</span><span>${fmtMoneyCaja(r.vendidaB)}</span></div>
+    <div class="r-row"><span>Caja restante después de ropa</span><span>${fmtMoneyCaja(r.cajaRestante)}</span></div>
+    <div class="r-row"><span>Ganancia 50% ${nameA}</span><span>${fmtMoneyCaja(r.gananciaA)}</span></div>
+    <div class="r-row"><span>Ganancia 50% ${nameB}</span><span>${fmtMoneyCaja(r.gananciaB)}</span></div>
+    <div class="r-row"><span>${nameB} le debe a ${nameA} (abastecimiento)</span><span>${fmtMoneyCaja(r.debtBtoA)}</span></div>
+    <div class="r-row"><span>${nameA} le debe a ${nameB} (abastecimiento)</span><span>${fmtMoneyCaja(r.debtAtoB)}</span></div>
+    <div class="r-row total"><span>${nameA} retira</span><span>${fmtMoneyCaja(r.retiroA)}</span></div>
+    <div class="r-row total"><span>${nameB} retira</span><span>${fmtMoneyCaja(r.retiroB)}</span></div>
+  `;
+}
+
+document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
+  const r = computeCajaReparto();
+  const msg = `¿Confirmás el reparto?\n\n${cajaConfig.ownerAName} retira: ${fmtMoneyCaja(r.retiroA)}\n${cajaConfig.ownerBName} retira: ${fmtMoneyCaja(r.retiroB)}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento actuales, y pone la caja en $0.`;
+  if(!confirm(msg)) return;
+
+  await db.ref('caja/historial').push({
+    date: new Date().toISOString().slice(0,10),
+    cajaMonto: r.cajaActual,
+    retiroA: r.retiroA,
+    retiroB: r.retiroB,
+    hechoPor: currentUser.username,
+    timestamp: Date.now()
+  });
+
+  // Marcar ropa vendida como cobrada
+  const updates = {};
+  Object.entries(ropaCache).forEach(([key,v])=>{
+    if(v.status==='Vendido') updates['caja/ropa/'+key+'/status'] = 'Cobrado';
+  });
+  // Saldar deudas de abastecimiento actuales
+  Object.entries(abastCache).forEach(([key,v])=>{
+    if(!v.settled) updates['caja/abastecimiento/'+key+'/settled'] = true;
+  });
+  updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
+  await db.ref().update(updates);
+});
+
+function renderCajaHistorial(snap){
+  const box = document.getElementById('cajaHistorial');
+  const items = [];
+  snap.forEach(child=>items.push(child.val()));
+  items.reverse();
+  if(items.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se registró ningún reparto.</div>'; return; }
+  box.innerHTML = `<div class="payments-list">${items.map(h=>{
+    const date = new Date(h.timestamp).toLocaleString('es-AR');
+    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — <b>${cajaConfig.ownerAName}</b>: ${fmtMoneyCaja(h.retiroA)} / <b>${cajaConfig.ownerBName}</b>: ${fmtMoneyCaja(h.retiroB)}</span><span>${date} (${h.hechoPor})</span></div>`;
+  }).join('')}</div>`;
+}
 </script>
 </body>
 </html>
