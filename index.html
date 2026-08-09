@@ -254,6 +254,32 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 }
 .payment-row b{color:var(--text);}
 
+.cat-track-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 14px;margin-bottom:8px;
+}
+.cat-track-label{font-family:'Oswald',sans-serif;font-weight:600;font-size:13.5px;min-width:150px;}
+.cat-track-value{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--text-dim);min-width:60px;}
+.cat-track-input{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;width:110px;
+}
+.cat-track-input:focus{outline:none;border-color:var(--administracion);}
+
+.dismiss-btn{
+  font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;
+  background:transparent;border:1px solid var(--border);color:var(--text-dimmer);
+  padding:5px 10px;border-radius:7px;cursor:pointer;
+}
+.dismiss-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+.dismiss-all-btn{
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+  background:transparent;border:1px solid var(--border);color:var(--text-dim);
+  padding:7px 12px;border-radius:8px;cursor:pointer;margin-bottom:10px;
+}
+.dismiss-all-btn:hover{border-color:var(--seguridad);color:var(--seguridad);}
+
 @media (max-width:520px){
   .status-row{grid-template-columns:110px 1fr 54px;}
   .admin-table{display:block;overflow-x:auto;}
@@ -307,8 +333,13 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
     <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
     <div id="adminTableWrap"></div>
 
+    <h3 class="admin-subheading">📊 Seguimiento de estado por categoría</h3>
+    <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 5 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
+    <div id="categoryTrackingWrap"></div>
+
     <h3 class="admin-subheading">🚩 Actividad sospechosa</h3>
     <p class="sub" style="margin-bottom:12px;">Se marcan acá (sin bloquear nada) los trabajos hechos a menos de 2 minutos de otro trabajo de la misma persona, o a menos de 3 minutos de que el puesto se haya desbloqueado (excepto en los que pagan $500, esos se hacen rápido).</p>
+    <div id="suspiciousActivityHeader"></div>
     <div id="suspiciousActivity"></div>
 
     <h3 class="admin-subheading">Historial de pagos</h3>
@@ -385,7 +416,7 @@ const JOBS = {
   ],
   contabilidad:[
     {id:'co1', name:'Atender al cliente', recorrido:'Dentro → Dentro', cd:30, aporte:3, pay:500, req:'Ninguno', desc:'Interactuar con un NPC.'},
-    {id:'co2', name:'Cierre de caja', recorrido:'Dentro → Dentro', cd:180, aporte:5, pay:1500, req:'Ninguno', desc:'Llenar la caja fuerte.'},
+    {id:'co2', name:'Cierre de caja', recorrido:'Dentro → Dentro', cd:180, aporte:5, pay:500, req:'Ninguno', desc:'Llenar la caja fuerte.'},
     {id:'co3', name:'Reporte laboral', recorrido:'Dentro → Fuera', cd:240, aporte:15, pay:1500, req:'Ninguno', desc:'Hablar con un empleado y llevarlo a la oficina de empleo (queda cerca).'},
     {id:'co4', name:'Pago de aseguranza', recorrido:'Fuera → Fuera', cd:300, aporte:17, pay:1000, req:'Ninguno', desc:'Acercarse a la oficina de Seguros de Vehículos.'},
     {id:'co5', name:'Pago de arrendamiento', recorrido:'Fuera → Fuera', cd:480, aporte:30, pay:1000, req:'Ninguno', desc:'Acercarse a un banco cercano.'},
@@ -656,11 +687,14 @@ function renderJobs(){
             const reasons = [];
 
             // Regla 1: menos de 2 minutos desde su último trabajo marcado (cualquiera)
-            const lastActionSnap = await db.ref('lastAction/'+currentUser.uid).once('value');
-            const lastActionTs = lastActionSnap.val() || 0;
-            const gapSinceLast = now - lastActionTs;
-            if(lastActionTs > 0 && gapSinceLast < 2*60*1000){
-              reasons.push(`Hizo otro trabajo hace ${Math.round(gapSinceLast/1000)}s`);
+            // (tampoco aplica a los trabajos que pagan $500, esos se hacen rápido de verdad)
+            if(pay !== 500){
+              const lastActionSnap = await db.ref('lastAction/'+currentUser.uid).once('value');
+              const lastActionTs = lastActionSnap.val() || 0;
+              const gapSinceLast = now - lastActionTs;
+              if(lastActionTs > 0 && gapSinceLast < 2*60*1000){
+                reasons.push(`Hizo otro trabajo hace ${Math.round(gapSinceLast/1000)}s`);
+              }
             }
             db.ref('lastAction/'+currentUser.uid).set(now);
 
@@ -697,6 +731,13 @@ function renderJobs(){
                 bal.owed = (bal.owed||0) + pay;
                 bal.totalEarned = (bal.totalEarned||0) + pay;
                 return bal;
+              });
+            }
+            if(job.aporte){
+              db.ref('categoryState/'+cat.id).transaction(state=>{
+                const decayed = computeDecayedValue(state && state.value, state && state.updatedAt, now);
+                const newValue = Math.min(100, Math.max(0, decayed + job.aporte));
+                return {value: newValue, updatedAt: now};
               });
             }
             await db.ref('timers/'+key).set({
@@ -834,6 +875,7 @@ function tick(){
   });
   updateStatusBars();
   applyStatusFilter();
+  if(adminStarted) updateCategoryTrackingDisplay();
 }
 
 renderStatusBars();
@@ -965,9 +1007,17 @@ function fmtMoney(n){
   return '$' + (n||0).toLocaleString('es-AR');
 }
 
+// Calcula el valor actual de una categoría aplicando el decaimiento de 5 puntos por hora, de forma paulatina
+function computeDecayedValue(baseValue, baseTimestamp, now){
+  if(typeof baseValue !== 'number' || !baseTimestamp) return 0;
+  const hoursElapsed = (now - baseTimestamp) / (60*60*1000);
+  return Math.max(0, baseValue - 5 * hoursElapsed);
+}
+
 let adminUsersCache = {};
 let adminBalancesCache = {};
 let adminWeeklyCounts = {};
+let categoryStateCache = {};
 let adminStarted = false;
 
 function startAdminListeners(){
@@ -1003,27 +1053,88 @@ function startAdminListeners(){
     const flagged = [];
     snap.forEach(child=>{
       const log = child.val();
-      if(log.flagged) flagged.push(log);
+      if(log.flagged) flagged.push({...log, key: child.key});
     });
     renderSuspiciousActivity(flagged);
   });
+
+  db.ref('categoryState').on('value', snap=>{
+    categoryStateCache = snap.val() || {};
+    renderCategoryTracking();
+  });
+}
+
+function renderCategoryTracking(){
+  const box = document.getElementById('categoryTrackingWrap');
+  box.innerHTML = CATS.map(cat=>`
+    <div class="cat-track-row">
+      <span class="cat-track-label">${cat.emoji} ${cat.label}</span>
+      <span class="cat-track-value" id="cat-live-${cat.id}">–%</span>
+      <input type="number" class="cat-track-input" id="cat-input-${cat.id}" placeholder="Nuevo valor" min="0" max="100">
+      <button class="pay-btn" data-catid="${cat.id}">Actualizar</button>
+    </div>
+  `).join('');
+
+  box.querySelectorAll('button[data-catid]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const catId = btn.dataset.catid;
+      const input = document.getElementById('cat-input-'+catId);
+      const val = Number(input.value);
+      if(input.value === '' || isNaN(val) || val<0 || val>100){
+        alert('Poné un número entre 0 y 100.');
+        return;
+      }
+      await db.ref('categoryState/'+catId).set({value: val, updatedAt: Date.now()});
+      input.value = '';
+    });
+  });
+
+  updateCategoryTrackingDisplay();
+}
+
+function updateCategoryTrackingDisplay(){
+  const now = Date.now();
+  CATS.forEach(cat=>{
+    const el = document.getElementById('cat-live-'+cat.id);
+    if(!el) return;
+    const state = categoryStateCache[cat.id];
+    const value = state ? computeDecayedValue(state.value, state.updatedAt, now) : 0;
+    el.textContent = Math.round(value) + '%';
+  });
+}
+
+function dismissSuspicious(logKey){
+  db.ref('logs/'+logKey).update({flagged:false, flagReasons:null});
 }
 
 function renderSuspiciousActivity(items){
+  const headerBox = document.getElementById('suspiciousActivityHeader');
   const box = document.getElementById('suspiciousActivity');
   if(items.length === 0){
+    headerBox.innerHTML = '';
     box.innerHTML = '<div class="admin-empty">No hay actividad sospechosa reciente. 👍</div>';
     return;
   }
   items.reverse(); // más reciente primero
+
+  headerBox.innerHTML = `<button class="dismiss-all-btn" id="dismissAllBtn">Borrar todas (${items.length})</button>`;
+  document.getElementById('dismissAllBtn').addEventListener('click', ()=>{
+    if(!confirm(`¿Borrar las ${items.length} notificaciones de sospecha?`)) return;
+    items.forEach(log => dismissSuspicious(log.key));
+  });
+
   box.innerHTML = `<div class="payments-list">${items.map(log=>{
     const date = new Date(log.timestamp).toLocaleString('es-AR');
     const reason = log.flagReasons || (log.gapMs ? `a ${Math.round(log.gapMs/1000)}s del anterior` : 'motivo sin detalle');
     return `<div class="payment-row" style="border-left:3px solid var(--seguridad);">
       <span><b>${log.username}</b> — ${log.jobName} (${reason})</span>
-      <span>${date}</span>
+      <span style="display:flex;align-items:center;gap:10px;">${date} <button class="dismiss-btn" data-key="${log.key}">Borrar</button></span>
     </div>`;
   }).join('')}</div>`;
+
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> dismissSuspicious(btn.dataset.key));
+  });
 }
 
 function renderAdminTable(){
