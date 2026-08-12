@@ -382,7 +382,6 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
   <div id="adminView" style="display:none;">
     <div class="admin-header">
       <h2>⚙️ Panel de Administración</h2>
-      <button class="bell-btn" id="adminBackBtn">← Volver al mall</button>
     </div>
     <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
     <div id="adminTableWrap"></div>
@@ -1118,6 +1117,7 @@ auth.onAuthStateChanged(async (user)=>{
     userBar.style.display = 'flex';
     overlay.style.display = 'none';
     startAppOnce();
+    applyStoredCollapseState();
   } else {
     currentUser = null;
     userBar.style.display = 'none';
@@ -1350,7 +1350,6 @@ function setSection(section){ // 'mall' | 'admin' | 'caja'
 document.getElementById('mallToggleBtn').addEventListener('click', ()=> setSection('mall'));
 document.getElementById('adminToggleBtn').addEventListener('click', ()=> setSection('admin'));
 document.getElementById('cajaToggleBtn').addEventListener('click', ()=> setSection('caja'));
-document.getElementById('adminBackBtn').addEventListener('click', ()=> setSection('mall'));
 
 // ====== CIERRE DE CAJA ======
 
@@ -1780,8 +1779,27 @@ document.querySelectorAll('.collapsible-header').forEach(header=>{
     if(!target) return;
     const nowCollapsed = target.classList.toggle('collapsed');
     header.classList.toggle('collapsed', nowCollapsed);
+    if(currentUser){
+      db.ref('uiPrefs/'+currentUser.uid+'/collapsed/'+header.dataset.target).set(nowCollapsed);
+    }
   });
 });
+
+async function applyStoredCollapseState(){
+  if(!currentUser) return;
+  let prefs = {};
+  try{
+    const snap = await db.ref('uiPrefs/'+currentUser.uid+'/collapsed').once('value');
+    prefs = snap.val() || {};
+  }catch(e){ return; }
+  document.querySelectorAll('.collapsible-header').forEach(header=>{
+    const target = document.getElementById(header.dataset.target);
+    if(!target) return;
+    const shouldCollapse = !!prefs[header.dataset.target];
+    target.classList.toggle('collapsed', shouldCollapse);
+    header.classList.toggle('collapsed', shouldCollapse);
+  });
+}
 </script>
 </body>
 </html>
