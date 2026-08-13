@@ -431,24 +431,36 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
     <div class="admin-header">
       <h2>⚙️ Panel de Administración</h2>
     </div>
-    <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
-    <div id="adminTableWrap"></div>
 
-    <h3 class="admin-subheading">📅 Historial de trabajos</h3>
-    <p class="sub" style="margin-bottom:12px;">Cada domingo a las 24:00, la semana que termina queda guardada acá antes de que el contador arranque de nuevo (se archiva la primera vez que un dueño entra al panel después de esa hora).</p>
-    <div id="weeklyHistoryWrap"></div>
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-tabla"><span class="arrow">▾</span> Usuarios</h3>
+    <div class="collapsible-content" id="adm-sec-tabla">
+      <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
+      <div id="adminTableWrap"></div>
+    </div>
 
-    <h3 class="admin-subheading">📊 Seguimiento de estado por categoría</h3>
-    <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 4 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
-    <div id="categoryTrackingWrap"></div>
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-semanal"><span class="arrow">▾</span> 📅 Historial de trabajos</h3>
+    <div class="collapsible-content" id="adm-sec-semanal">
+      <p class="sub" style="margin-bottom:12px;">Cada domingo a las 24:00, la semana que termina queda guardada acá antes de que el contador arranque de nuevo (se archiva la primera vez que un dueño entra al panel después de esa hora).</p>
+      <div id="weeklyHistoryWrap"></div>
+    </div>
 
-    <h3 class="admin-subheading">🚩 Actividad sospechosa</h3>
-    <p class="sub" style="margin-bottom:12px;">Se marcan acá (sin bloquear nada) los trabajos hechos a menos de 2 minutos de otro trabajo de la misma persona, o a menos de 3 minutos de que el puesto se haya desbloqueado (excepto en los que pagan $500, esos se hacen rápido).</p>
-    <div id="suspiciousActivityHeader"></div>
-    <div id="suspiciousActivity"></div>
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-estado"><span class="arrow">▾</span> 📊 Seguimiento de estado por categoría</h3>
+    <div class="collapsible-content" id="adm-sec-estado">
+      <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 4 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
+      <div id="categoryTrackingWrap"></div>
+    </div>
 
-    <h3 class="admin-subheading">Historial de pagos</h3>
-    <div id="paymentsHistory"></div>
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-sospecha"><span class="arrow">▾</span> 🚩 Actividad sospechosa</h3>
+    <div class="collapsible-content" id="adm-sec-sospecha">
+      <p class="sub" style="margin-bottom:12px;">Se marcan acá (sin bloquear nada) los trabajos hechos a menos de 2 minutos de otro trabajo de la misma persona, o a menos de 3 minutos de que el puesto se haya desbloqueado (excepto en los que pagan $500, esos se hacen rápido).</p>
+      <div id="suspiciousActivityHeader"></div>
+      <div id="suspiciousActivity"></div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="adm-sec-pagos"><span class="arrow">▾</span> Historial de pagos</h3>
+    <div class="collapsible-content" id="adm-sec-pagos">
+      <div id="paymentsHistory"></div>
+    </div>
   </div>
 
   <div id="cajaView" style="display:none;">
@@ -503,16 +515,14 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <div class="caja-form-row">
         <input type="text" id="ropaDesc" placeholder="Descripción de la prenda">
         <select id="ropaDueno"></select>
-        <select id="ropaRopero"><option value="1">Ropero 1</option><option value="2">Ropero 2</option></select>
+        <select id="ropaRopero"></select>
         <input type="number" id="ropaPrecio" placeholder="Precio venta $">
         <input type="text" id="ropaNotas" placeholder="Notas (opcional)">
         <button class="pay-btn" id="addRopaBtn">Agregar</button>
       </div>
       <div id="ropaTotales" class="caja-totales"></div>
-      <h4 style="font-family:'Oswald',sans-serif;font-size:14px;margin:14px 0 8px;">Ropero 1</h4>
-      <div id="ropaTableWrap1"></div>
-      <h4 style="font-family:'Oswald',sans-serif;font-size:14px;margin:14px 0 8px;">Ropero 2</h4>
-      <div id="ropaTableWrap2"></div>
+      <button class="dismiss-all-btn" id="addRoperoBtn" style="margin-bottom:10px;">+ Agregar ropero</button>
+      <div id="roperosWrap"></div>
     </div>
 
     <h3 class="admin-subheading collapsible-header" data-target="sec-gastos"><span class="arrow">▾</span> 🛠️ Gastos extraordinarios</h3>
@@ -738,15 +748,17 @@ function renderCfgJobsList(){
   box.innerHTML = html;
 }
 
-document.getElementById('saveCfgTextosBtn').addEventListener('click', ()=>{
+document.getElementById('saveCfgTextosBtn').addEventListener('click', async ()=>{
   const title = document.getElementById('cfgTitle').value.trim() || DEFAULT_TITLE;
   const subtitle = document.getElementById('cfgSubtitle').value.trim() || DEFAULT_SUBTITLE;
-  db.ref('siteConfig').update({title, subtitle});
+  await db.ref('siteConfig').update({title, subtitle});
+  showToast('Título y descripción actualizados.', '💾 Guardado');
 });
 
-document.getElementById('saveCfgTipsBtn').addEventListener('click', ()=>{
+document.getElementById('saveCfgTipsBtn').addEventListener('click', async ()=>{
   const tips = document.getElementById('cfgTips').value;
-  db.ref('siteConfig').update({tips});
+  await db.ref('siteConfig').update({tips});
+  showToast('Consejos para novatos actualizados.', '💾 Guardado');
 });
 
 document.getElementById('saveCfgJobsBtn').addEventListener('click', async ()=>{
@@ -759,7 +771,7 @@ document.getElementById('saveCfgJobsBtn').addEventListener('click', async ()=>{
     }
   });
   await db.ref().update(updates);
-  alert('Precios guardados.');
+  showToast('Precios de los oficios actualizados.', '💾 Guardado');
 });
 
 let activeCat = 'abastecimiento';
@@ -800,11 +812,11 @@ function beep(){
   }catch(e){}
 }
 
-function showToast(jobName){
+function showToast(body, title){
   const box = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = 'toast';
-  toast.innerHTML = `<p class="toast-title">✅ Disponible</p><p class="toast-body">${jobName}</p>`;
+  toast.innerHTML = `<p class="toast-title">${title || '✅ Disponible'}</p><p class="toast-body">${body}</p>`;
   box.appendChild(toast);
   setTimeout(()=>{
     toast.classList.add('leaving');
@@ -1490,6 +1502,7 @@ function renderCategoryTracking(){
       }
       await db.ref('categoryState/'+catId).set({value: val, updatedAt: Date.now()});
       input.value = '';
+      showToast(`Nuevo valor: ${val}%`, '💾 Estado actualizado');
     });
   });
 
@@ -1583,6 +1596,7 @@ function renderAdminTable(){
       if(!confirm(`¿Confirmás que ya le pagaste ${fmtMoney(amount)} a ${username}?`)) return;
       await db.ref('balances/'+uid+'/owed').set(0);
       await db.ref('payments').push({uid, username, amount, timestamp: Date.now(), paidBy: currentUser.username});
+      showToast(`${username} — ${fmtMoney(amount)}`, '💾 Marcado como pagado');
     });
   });
 }
@@ -1642,6 +1656,17 @@ function ownerName(id){
   const o = ownersCache[id];
   return o ? o.name : '(dueño eliminado)';
 }
+
+let roperosCache = {}; // {roperoId: {name, createdAt}}
+function roperosList(){
+  return Object.entries(roperosCache)
+    .map(([id,v])=>({id, name:v.name, createdAt:v.createdAt||0}))
+    .sort((a,b)=>a.createdAt-b.createdAt);
+}
+function fillRopaRoperoSelect(){
+  document.getElementById('ropaRopero').innerHTML = roperosList().map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+}
+
 let abastCache = {};
 let ropaCache = {};
 let cajaActualCache = {amount:0};
@@ -1694,8 +1719,9 @@ function renderOwnersForm(){
   });
 }
 
-document.getElementById('addOwnerBtn').addEventListener('click', ()=>{
-  db.ref('caja/owners').push({name:'Nuevo dueño', createdAt: Date.now()});
+document.getElementById('addOwnerBtn').addEventListener('click', async ()=>{
+  await db.ref('caja/owners').push({name:'Nuevo dueño', createdAt: Date.now()});
+  showToast('Se agregó un dueño nuevo, cambiale el nombre y guardá.', '💾 Agregado');
 });
 
 function fillAbastItemSelect(){
@@ -1757,6 +1783,22 @@ function startCajaListeners(){
     renderCajaResumen();
   });
 
+  // Migración: si todavía no existe la lista de roperos, sembramos los 2 que ya había fijos
+  db.ref('caja/roperos').once('value').then(snap=>{
+    if(!snap.exists()){
+      db.ref('caja/roperos').set({
+        '1': {name:'Ropero 1', createdAt: 1},
+        '2': {name:'Ropero 2', createdAt: 2}
+      });
+    }
+  });
+
+  db.ref('caja/roperos').on('value', snap=>{
+    roperosCache = snap.val() || {};
+    fillRopaRoperoSelect();
+    renderRopaTable();
+  });
+
   db.ref('caja/abastecimiento').on('value', snap=>{
     abastCache = snap.val() || {};
     renderAbastTable();
@@ -1807,6 +1849,7 @@ document.getElementById('saveOwnerNamesBtn').addEventListener('click', async ()=
   });
   if(Object.keys(updates).length===0) return;
   await db.ref().update(updates);
+  showToast('Nombres de dueños actualizados.', '💾 Guardado');
 });
 
 document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
@@ -1839,6 +1882,7 @@ document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
   document.getElementById('abastCantidad').value = '';
   document.getElementById('abastNotas').value = '';
   updateAbastInversionPreview();
+  showToast(`${item.name} x${qty} — ${fmtMoneyCaja(monto)}`, '💾 Compra agregada');
 });
 
 function renderAbastTable(){
@@ -1878,7 +1922,7 @@ function renderAbastTable(){
   });
 }
 
-document.getElementById('addRopaBtn').addEventListener('click', ()=>{
+document.getElementById('addRopaBtn').addEventListener('click', async ()=>{
   const desc = document.getElementById('ropaDesc').value.trim();
   const owner = document.getElementById('ropaDueno').value;
   const ropero = document.getElementById('ropaRopero').value;
@@ -1886,7 +1930,7 @@ document.getElementById('addRopaBtn').addEventListener('click', ()=>{
   const notas = document.getElementById('ropaNotas').value.trim();
   if(!desc){ alert('Poné una descripción.'); return; }
   if(!precio || precio<=0){ alert('Poné un precio válido.'); return; }
-  db.ref('caja/ropa').push({
+  await db.ref('caja/ropa').push({
     date: new Date().toISOString().slice(0,10),
     desc, owner, precio, notas, ropero,
     order: Date.now(),
@@ -1896,6 +1940,7 @@ document.getElementById('addRopaBtn').addEventListener('click', ()=>{
   document.getElementById('ropaDesc').value = '';
   document.getElementById('ropaPrecio').value = '';
   document.getElementById('ropaNotas').value = '';
+  showToast(`${desc} — ${fmtMoneyCaja(precio)}`, '💾 Prenda agregada');
 });
 
 function renderRopaTable(){
@@ -1905,19 +1950,32 @@ function renderRopaTable(){
     const stock = entries.filter(([k,v])=>v.owner===o.id && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
     return `<span>Vendido ${o.name}: ${fmtMoneyCaja(vendida)}</span> <span>Stock ${o.name}: ${fmtMoneyCaja(stock)}</span>`;
   }).join(' ');
-  renderRoperoTable(1, entries);
-  renderRoperoTable(2, entries);
+
+  const wrap = document.getElementById('roperosWrap');
+  const roperos = roperosList();
+  if(roperos.length===0){ wrap.innerHTML = '<div class="admin-empty">Sin roperos cargados, agregá el primero.</div>'; return; }
+
+  wrap.innerHTML = roperos.map(r=>`
+    <h3 class="admin-subheading collapsible-header" data-target="ropero-sec-${r.id}"><span class="arrow">▾</span> ${r.name}</h3>
+    <div class="collapsible-content" id="ropero-sec-${r.id}">
+      <div id="ropaTableWrap-${r.id}"></div>
+    </div>
+  `).join('');
+  wireAllCollapsibles();
+
+  roperos.forEach(r => renderRoperoTable(r.id, entries, roperos));
 }
 
-function renderRoperoTable(roperoNum, allEntries){
-  const box = document.getElementById('ropaTableWrap'+roperoNum);
+function renderRoperoTable(roperoId, allEntries, roperos){
+  const box = document.getElementById('ropaTableWrap-'+roperoId);
+  if(!box) return;
   const entries = allEntries
-    .filter(([k,v])=> String(v.ropero||'1') === String(roperoNum))
+    .filter(([k,v])=> String(v.ropero||'1') === String(roperoId))
     .sort((a,b)=> (a[1].order||a[1].timestamp) - (b[1].order||b[1].timestamp));
 
   if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin prendas en este ropero.</div>'; return; }
 
-  const otroRopero = roperoNum===1 ? 2 : 1;
+  const otrosRoperos = roperos.filter(r=>r.id!==roperoId);
   const rows = entries.map(([key,v], idx)=>`
     <tr>
       <td>${v.date}</td><td>${v.desc}</td>
@@ -1927,7 +1985,10 @@ function renderRoperoTable(roperoNum, allEntries){
         <button class="small-del-btn" data-action="up" data-key="${key}" ${idx===0?'disabled':''}>↑</button>
         <button class="small-del-btn" data-action="down" data-key="${key}" ${idx===entries.length-1?'disabled':''}>↓</button>
         <button class="status-toggle-btn" data-key="${key}" data-tostatus="${v.status==='Disponible'?'Vendido':'Disponible'}">${v.status==='Disponible'?'Marcar vendido':'Marcar disponible'}</button>
-        <button class="status-toggle-btn" data-action="move" data-key="${key}" data-toropero="${otroRopero}">Mover a Ropero ${otroRopero}</button>
+        ${otrosRoperos.length>0 ? `<select class="med-qty-input" data-action="move" data-key="${key}" style="width:auto;">
+          <option value="">Mover a...</option>
+          ${otrosRoperos.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
+        </select>` : ''}
         <button class="small-del-btn" data-action="del" data-key="${key}">Borrar</button>
       </td>
     </tr>
@@ -1949,9 +2010,11 @@ function renderRoperoTable(roperoNum, allEntries){
   box.querySelectorAll('.status-toggle-btn[data-key]:not([data-action])').forEach(btn=>{
     btn.addEventListener('click', ()=> db.ref('caja/ropa/'+btn.dataset.key+'/status').set(btn.dataset.tostatus));
   });
-  box.querySelectorAll('button[data-action="move"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      db.ref('caja/ropa/'+btn.dataset.key).update({ropero: btn.dataset.toropero, order: Date.now()});
+  box.querySelectorAll('select[data-action="move"]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      if(!sel.value) return;
+      db.ref('caja/ropa/'+sel.dataset.key).update({ropero: sel.value, order: Date.now()});
+      showToast('Prenda movida de ropero.', '💾 Movido');
     });
   });
   box.querySelectorAll('button[data-action="del"]').forEach(btn=>{
@@ -1961,10 +2024,19 @@ function renderRoperoTable(roperoNum, allEntries){
   });
 }
 
-document.getElementById('saveCajaBtn').addEventListener('click', ()=>{
+document.getElementById('addRoperoBtn').addEventListener('click', async ()=>{
+  const nombre = prompt('Nombre del nuevo ropero:', `Ropero ${roperosList().length+1}`);
+  if(nombre === null) return;
+  const finalName = nombre.trim() || `Ropero ${roperosList().length+1}`;
+  await db.ref('caja/roperos').push({name: finalName, createdAt: Date.now()});
+  showToast(`Se agregó "${finalName}".`, '💾 Ropero agregado');
+});
+
+document.getElementById('saveCajaBtn').addEventListener('click', async ()=>{
   const val = Number(document.getElementById('cajaActualInput').value);
   if(isNaN(val) || val<0){ alert('Poné un monto válido.'); return; }
-  db.ref('caja/actual').set({amount: val, updatedAt: Date.now()});
+  await db.ref('caja/actual').set({amount: val, updatedAt: Date.now()});
+  showToast(`Caja actualizada a ${fmtMoneyCaja(val)}.`, '💾 Guardado');
 });
 
 function renderMedicinaTable(){
@@ -2036,6 +2108,7 @@ document.getElementById('addMedicineItemBtn').addEventListener('click', async ()
   document.getElementById('newItemSell').value = '';
   document.getElementById('newItemBuy').value = '';
   document.getElementById('newItemFormRow').style.display = 'none';
+  showToast(`${name} — venta ${fmtMoneyCaja(sell)} / compra ${fmtMoneyCaja(buy)}`, '💾 Ítem creado');
 });
 
 document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
@@ -2078,8 +2151,9 @@ document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
       updates['caja/medicina/'+item.key+'/ventaAcumulada'] = ventaAcumulada;
     }
   });
-  if(!changed){ return; }
+  if(!changed){ showToast('No había cambios para guardar.', 'ℹ️ Sin cambios'); return; }
   await db.ref().update(updates);
+  showToast('Stock y precios de medicina actualizados.', '💾 Guardado');
 });
 
 function renderMedicinaVentasList(){
@@ -2108,13 +2182,13 @@ function renderMedicinaVentasList(){
   });
 }
 
-document.getElementById('addGastoBtn').addEventListener('click', ()=>{
+document.getElementById('addGastoBtn').addEventListener('click', async ()=>{
   const nombre = document.getElementById('gastoNombre').value.trim();
   const owner = document.getElementById('gastoDueno').value;
   const monto = Number(document.getElementById('gastoMonto').value);
   if(!nombre){ alert('Poné un nombre para el gasto.'); return; }
   if(!monto || monto<=0){ alert('Poné un monto válido.'); return; }
-  db.ref('caja/gastosExtra').push({
+  await db.ref('caja/gastosExtra').push({
     date: new Date().toISOString().slice(0,10),
     nombre, owner, monto,
     settled: false,
@@ -2122,6 +2196,7 @@ document.getElementById('addGastoBtn').addEventListener('click', ()=>{
   });
   document.getElementById('gastoNombre').value = '';
   document.getElementById('gastoMonto').value = '';
+  showToast(`${nombre} — ${fmtMoneyCaja(monto)}`, '💾 Gasto agregado');
 });
 
 function renderGastosExtraTable(){
@@ -2248,6 +2323,7 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   updates['caja/medicinaVentas'] = null;
   updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
   await db.ref().update(updates);
+  showToast('Reparto registrado y caja reiniciada.', '💾 Listo');
 });
 
 function renderCajaHistorial(data){
@@ -2273,29 +2349,43 @@ function renderCajaHistorial(data){
   });
 }
 
-document.querySelectorAll('.collapsible-header').forEach(header=>{
+let collapsePrefsCache = {};
+
+function wireCollapsibleHeader(header){
+  if(header.dataset.wired) return;
+  header.dataset.wired = '1';
+  const target = document.getElementById(header.dataset.target);
+  if(target && collapsePrefsCache[header.dataset.target]){
+    target.classList.add('collapsed');
+    header.classList.add('collapsed');
+  }
   header.addEventListener('click', ()=>{
-    const target = document.getElementById(header.dataset.target);
-    if(!target) return;
-    const nowCollapsed = target.classList.toggle('collapsed');
+    const t = document.getElementById(header.dataset.target);
+    if(!t) return;
+    const nowCollapsed = t.classList.toggle('collapsed');
     header.classList.toggle('collapsed', nowCollapsed);
     if(currentUser){
       db.ref('uiPrefs/'+currentUser.uid+'/collapsed/'+header.dataset.target).set(nowCollapsed);
     }
   });
-});
+}
+
+function wireAllCollapsibles(){
+  document.querySelectorAll('.collapsible-header').forEach(wireCollapsibleHeader);
+}
+
+wireAllCollapsibles();
 
 async function applyStoredCollapseState(){
   if(!currentUser) return;
-  let prefs = {};
   try{
     const snap = await db.ref('uiPrefs/'+currentUser.uid+'/collapsed').once('value');
-    prefs = snap.val() || {};
+    collapsePrefsCache = snap.val() || {};
   }catch(e){ return; }
   document.querySelectorAll('.collapsible-header').forEach(header=>{
     const target = document.getElementById(header.dataset.target);
     if(!target) return;
-    const shouldCollapse = !!prefs[header.dataset.target];
+    const shouldCollapse = !!collapsePrefsCache[header.dataset.target];
     target.classList.toggle('collapsed', shouldCollapse);
     header.classList.toggle('collapsed', shouldCollapse);
   });
