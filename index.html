@@ -73,6 +73,16 @@ body{
 .bell-btn.on{border-color:var(--contabilidad);color:var(--contabilidad);}
 .nav-btn.nav-active{background:var(--administracion);border-color:var(--administracion);color:#0d0f14;}
 
+.config-fab{
+  position:fixed;top:16px;right:16px;z-index:950;
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--border);color:var(--text);
+  font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);
+}
+.config-fab:hover{border-color:var(--administracion);}
+.config-fab.nav-active{background:var(--administracion);border-color:var(--administracion);}
+
 .collapsible-header{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none;}
 .collapsible-header .arrow{display:inline-block;font-size:22px;transition:transform .18s ease;color:var(--text-dimmer);}
 .collapsible-header.collapsed .arrow{transform:rotate(-90deg);}
@@ -342,6 +352,7 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 </style>
 </head>
 <body>
+<button class="config-fab" id="configToggleBtn" style="display:none;" title="Configuración">⚙️</button>
 <div class="wrap">
 
   <div class="hero">
@@ -357,8 +368,8 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
     </div>
 
     <div id="heroExpanded">
-      <h1>Manual del Mall — Estado de la Propiedad</h1>
-      <p class="sub">Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.</p>
+      <h1 id="siteTitle">Manual del Mall — Estado de la Propiedad</h1>
+      <p class="sub" id="siteSubtitle">Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.</p>
 
       <button class="bell-btn" id="bellBtn">🔔 Activar notificaciones</button>
 
@@ -375,13 +386,44 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 
     <div class="tips">
       <h2>Consejos para novatos</h2>
-      <ul>
-        <li><b>Encadená trabajos:</b> mientras esperás el cooldown de uno, hacé otro de distinta categoría — así el estado general sube parejo.</li>
-        <li><b>Fijate el "Recorrido":</b> los que van "Dentro → Fuera" o "Fuera → Fuera" te van a hacer perder más tiempo, organizalos junto con otras vueltas afuera.</li>
-        <li><b>Algunos piden vehículo</b> con espacio libre en el maletero — asegurate antes de arrancar la misión para no perder el viaje.</li>
-        <li><b>Los trabajos bloqueados</b> (🔒) requieren una profesión o empresa que todavía no tenés — quedan anotados para cuando los consigas.</li>
-        <li>Esta página no guarda los tiempos si cerrás la pestaña — dejala abierta en segundo plano para que las alarmas te avisen.</li>
-      </ul>
+      <ul id="tipsList"></ul>
+    </div>
+  </div>
+
+  <div id="configView" style="display:none;">
+    <div class="admin-header">
+      <h2>⚙️ Configuración</h2>
+    </div>
+    <p class="sub" style="margin-bottom:16px;">Solo vos y otros dueños pueden ver y tocar esto.</p>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-textos"><span class="arrow">▾</span> Título y descripción</h3>
+    <div class="collapsible-content" id="cfg-sec-textos">
+      <div class="caja-form-row">
+        <input type="text" id="cfgTitle" placeholder="Título principal">
+      </div>
+      <div class="caja-form-row">
+        <input type="text" id="cfgSubtitle" placeholder="Descripción debajo del título">
+      </div>
+      <div class="caja-form-row">
+        <button class="pay-btn" id="saveCfgTextosBtn">Guardar título y descripción</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-precios"><span class="arrow">▾</span> Precio de cada oficio</h3>
+    <div class="collapsible-content" id="cfg-sec-precios">
+      <div id="cfgJobsWrap"></div>
+      <div class="caja-form-row">
+        <button class="pay-btn" id="saveCfgJobsBtn">Guardar precios</button>
+      </div>
+    </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-consejos"><span class="arrow">▾</span> Consejos para novatos</h3>
+    <div class="collapsible-content" id="cfg-sec-consejos">
+      <p class="sub" style="margin-bottom:10px;">Un consejo por línea.</p>
+      <textarea id="cfgTips" rows="6" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;"></textarea>
+      <div class="caja-form-row" style="margin-top:10px;">
+        <button class="pay-btn" id="saveCfgTipsBtn">Guardar consejos</button>
+      </div>
     </div>
   </div>
 
@@ -617,6 +659,109 @@ const db = firebase.database();
 const auth = firebase.auth();
 // ========================================
 
+// ====== CONFIGURACIÓN EDITABLE (título, descripción, precios, consejos) ======
+const DEFAULT_TIPS = [
+  'Encadená trabajos: mientras esperás el cooldown de uno, hacé otro de distinta categoría — así el estado general sube parejo.',
+  'Fijate el "Recorrido": los que van "Dentro → Fuera" o "Fuera → Fuera" te van a hacer perder más tiempo, organizalos junto con otras vueltas afuera.',
+  'Algunos piden vehículo con espacio libre en el maletero — asegurate antes de arrancar la misión para no perder el viaje.',
+  'Los trabajos bloqueados (🔒) requieren una profesión o empresa que todavía no tenés — quedan anotados para cuando los consigas.',
+  'Esta página no guarda los tiempos si cerrás la pestaña — dejala abierta en segundo plano para que las alarmas te avisen.'
+];
+const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
+const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
+
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n')};
+let jobPayOverrides = {};
+let configStarted = false;
+
+function getJobPay(job){
+  const override = jobPayOverrides[job.id];
+  return (typeof override === 'number') ? override : (job.pay || 0);
+}
+
+function applySiteConfigToPage(){
+  document.getElementById('siteTitle').textContent = siteConfig.title || DEFAULT_TITLE;
+  document.getElementById('siteSubtitle').textContent = siteConfig.subtitle || DEFAULT_SUBTITLE;
+  const tipsArr = (siteConfig.tips || DEFAULT_TIPS.join('\n')).split('\n').map(t=>t.trim()).filter(Boolean);
+  document.getElementById('tipsList').innerHTML = tipsArr.map(t=>`<li>${t}</li>`).join('');
+}
+
+let publicConfigStarted = false;
+function startPublicConfigListeners(){
+  if(publicConfigStarted) return;
+  publicConfigStarted = true;
+
+  db.ref('siteConfig').on('value', snap=>{
+    const v = snap.val();
+    siteConfig = {
+      title: (v && v.title) || DEFAULT_TITLE,
+      subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
+      tips: (v && v.tips) || DEFAULT_TIPS.join('\n')
+    };
+    applySiteConfigToPage();
+    const cfgTitleInput = document.getElementById('cfgTitle');
+    if(cfgTitleInput){
+      cfgTitleInput.value = siteConfig.title;
+      document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
+      document.getElementById('cfgTips').value = siteConfig.tips;
+    }
+  });
+
+  db.ref('jobPayOverrides').on('value', snap=>{
+    jobPayOverrides = snap.val() || {};
+    if(appStarted) renderJobs();
+  });
+}
+
+function startConfigListeners(){
+  if(configStarted) return;
+  configStarted = true;
+  renderCfgJobsList();
+}
+
+function renderCfgJobsList(){
+  const box = document.getElementById('cfgJobsWrap');
+  let html = '';
+  CATS.forEach(cat=>{
+    const jobs = JOBS[cat.id].filter(j=>!j.blocked);
+    if(jobs.length===0) return;
+    html += `<h4 style="font-family:'Oswald',sans-serif;font-size:14px;margin:14px 0 8px;color:${cat.hex};">${cat.emoji} ${cat.label}</h4>`;
+    jobs.forEach(job=>{
+      html += `
+        <div class="caja-form-row" style="margin-bottom:6px;">
+          <span style="flex:2;font-size:13px;">${job.name}${job.instances===2?' (x2)':''}</span>
+          <input type="number" min="0" class="med-qty-input" style="width:110px;" data-jobid="${job.id}" value="${getJobPay(job)}">
+        </div>
+      `;
+    });
+  });
+  box.innerHTML = html;
+}
+
+document.getElementById('saveCfgTextosBtn').addEventListener('click', ()=>{
+  const title = document.getElementById('cfgTitle').value.trim() || DEFAULT_TITLE;
+  const subtitle = document.getElementById('cfgSubtitle').value.trim() || DEFAULT_SUBTITLE;
+  db.ref('siteConfig').update({title, subtitle});
+});
+
+document.getElementById('saveCfgTipsBtn').addEventListener('click', ()=>{
+  const tips = document.getElementById('cfgTips').value;
+  db.ref('siteConfig').update({tips});
+});
+
+document.getElementById('saveCfgJobsBtn').addEventListener('click', async ()=>{
+  const updates = {};
+  document.querySelectorAll('#cfgJobsWrap input[data-jobid]').forEach(input=>{
+    const jobId = input.dataset.jobid;
+    const val = Number(input.value);
+    if(!isNaN(val) && val>=0){
+      updates['jobPayOverrides/'+jobId] = val;
+    }
+  });
+  await db.ref().update(updates);
+  alert('Precios guardados.');
+});
+
 let activeCat = 'abastecimiento';
 const RECORRIDOS = ['Todos', 'Dentro', 'Fuera', 'Dentro → Fuera'];
 let activeRecorrido = 'Todos';
@@ -782,7 +927,7 @@ function renderJobs(){
         <span class="tag">${job.recorrido}</span>
         ${job.cd ? `<span class="tag">⏱ cada ${fmtCd(job.cd)}</span>` : ''}
         ${job.aporte ? `<span class="tag aporte">+${job.aporte}%</span>` : ''}
-        ${job.pay ? `<span class="tag pay">$${job.pay.toLocaleString('es-AR')}</span>` : ''}
+        ${getJobPay(job) ? `<span class="tag pay">$${getJobPay(job).toLocaleString('es-AR')}</span>` : ''}
         ${job.instances===2 ? `<span class="tag">x2 instancias</span>` : ''}
       </div>
     </div></div>`;
@@ -844,7 +989,7 @@ function renderJobs(){
             }
             if(rec.logKey) db.ref('logs/'+rec.logKey).remove();
           } else {
-            const pay = job.pay || 0;
+            const pay = getJobPay(job);
             const reasons = [];
 
             // Regla 1: menos de 2 minutos desde su último trabajo marcado (cualquiera)
@@ -1049,6 +1194,7 @@ function startAppOnce(){
   if(appStarted) return;
   appStarted = true;
   setSection('mall');
+  startPublicConfigListeners();
   renderJobs();
   setInterval(tick, 1000);
   db.ref('timers').on('value', snapshot => {
@@ -1128,6 +1274,7 @@ auth.onAuthStateChanged(async (user)=>{
   const mallToggleBtn = document.getElementById('mallToggleBtn');
   const adminToggleBtn = document.getElementById('adminToggleBtn');
   const cajaToggleBtn = document.getElementById('cajaToggleBtn');
+  const configToggleBtn = document.getElementById('configToggleBtn');
   if(user){
     let profile = null;
     try{
@@ -1146,6 +1293,7 @@ auth.onAuthStateChanged(async (user)=>{
     mallToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
     adminToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
     cajaToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
+    configToggleBtn.style.display = currentUser.role === 'owner' ? 'flex' : 'none';
     userBar.style.display = 'flex';
     overlay.style.display = 'none';
     startAppOnce();
@@ -1406,7 +1554,6 @@ function renderAdminTable(){
     const weekly = adminWeeklyCounts[uid] || 0;
     const owed = bal.owed || 0;
     const isOwner = u.role === 'owner';
-    const isSelf = uid === currentUser.uid;
     return `
       <tr>
         <td>${u.username}${isOwner ? ' <span class="role-badge owner" style="margin-left:6px;">★ Dueño</span>' : ''}</td>
@@ -1414,7 +1561,6 @@ function renderAdminTable(){
         <td>${fmtMoney(bal.totalEarned)}</td>
         <td class="owed-amount ${owed>0?'has-debt':''}">${fmtMoney(owed)}</td>
         <td><button class="pay-btn" data-uid="${uid}" data-username="${u.username}" data-amount="${owed}" ${owed<=0?'disabled':''}>Pagado</button></td>
-        <td>${isSelf ? '' : `<button class="dismiss-btn" data-action="deluser" data-uid="${uid}" data-username="${u.username}">Borrar</button>`}</td>
       </tr>
     `;
   }).join('');
@@ -1422,26 +1568,11 @@ function renderAdminTable(){
   box.innerHTML = `
     <table class="admin-table">
       <thead>
-        <tr><th>Usuario</th><th>Trabajos esta semana</th><th>Ganado (total)</th><th>Le debo</th><th></th><th></th></tr>
+        <tr><th>Usuario</th><th>Trabajos esta semana</th><th>Ganado (total)</th><th>Le debo</th><th></th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
-
-  box.querySelectorAll('button[data-action="deluser"]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const uid = btn.dataset.uid;
-      const username = btn.dataset.username;
-      const typed = prompt(`Esto va a sacar a "${username}" de todas las listas y tablas de la app (no borra su acceso de login). Para confirmar, escribí la palabra "confirmar":`);
-      if(typed === null) return;
-      if(typed.trim().toLowerCase() !== 'confirmar'){
-        alert('No escribiste "confirmar" tal cual, así que no se borró nada.');
-        return;
-      }
-      await db.ref('users/'+uid).remove();
-      alert(`${username} fue borrado de las listas.`);
-    });
-  });
 
   box.querySelectorAll('.pay-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1475,23 +1606,27 @@ function renderPaymentsHistory(data){
   });
 }
 
-function setSection(section){ // 'mall' | 'admin' | 'caja'
+function setSection(section){ // 'mall' | 'admin' | 'caja' | 'config'
   document.getElementById('mainView').style.display = section==='mall' ? '' : 'none';
   document.getElementById('adminView').style.display = section==='admin' ? 'block' : 'none';
   document.getElementById('cajaView').style.display = section==='caja' ? 'block' : 'none';
+  document.getElementById('configView').style.display = section==='config' ? 'block' : 'none';
   document.getElementById('heroExpanded').style.display = section==='mall' ? '' : 'none';
 
   document.getElementById('mallToggleBtn').classList.toggle('nav-active', section==='mall');
   document.getElementById('adminToggleBtn').classList.toggle('nav-active', section==='admin');
   document.getElementById('cajaToggleBtn').classList.toggle('nav-active', section==='caja');
+  document.getElementById('configToggleBtn').classList.toggle('nav-active', section==='config');
 
   if(section==='admin') startAdminListeners();
   if(section==='caja') startCajaListeners();
+  if(section==='config') startConfigListeners();
 }
 
 document.getElementById('mallToggleBtn').addEventListener('click', ()=> setSection('mall'));
 document.getElementById('adminToggleBtn').addEventListener('click', ()=> setSection('admin'));
 document.getElementById('cajaToggleBtn').addEventListener('click', ()=> setSection('caja'));
+document.getElementById('configToggleBtn').addEventListener('click', ()=> setSection('config'));
 
 // ====== CIERRE DE CAJA ======
 
