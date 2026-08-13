@@ -392,6 +392,10 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
     <p class="sub" style="margin-bottom:16px;">Semana actual (arranca lunes 00:00, cierra domingo 24:00).</p>
     <div id="adminTableWrap"></div>
 
+    <h3 class="admin-subheading">📅 Historial de trabajos</h3>
+    <p class="sub" style="margin-bottom:12px;">Cada domingo a las 24:00, la semana que termina queda guardada acá antes de que el contador arranque de nuevo (se archiva la primera vez que un dueño entra al panel después de esa hora).</p>
+    <div id="weeklyHistoryWrap"></div>
+
     <h3 class="admin-subheading">📊 Seguimiento de estado por categoría</h3>
     <p class="sub" style="margin-bottom:12px;">Cada tarea hecha suma su aporte a la categoría, y baja sola 4 puntos por hora. Si esto queda más alto que el estado real del juego, alguien marcó tareas sin hacerlas — corregilo a mano acá.</p>
     <div id="categoryTrackingWrap"></div>
@@ -1114,6 +1118,7 @@ document.getElementById('signupSubmit').addEventListener('click', async ()=>{
 });
 
 document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  if(!confirm('¿Seguro que querés cerrar sesión?')) return;
   auth.signOut();
 });
 
@@ -1165,6 +1170,89 @@ function weekStartTimestampART(){
   return artMidnight + 3*60*60*1000;
 }
 
+function fmtDateShort(ts){
+  return new Date(ts).toLocaleDateString('es-AR');
+}
+
+// Revisa si ya pasó alguna semana sin archivar, y la guarda en 'weeklyHistory' antes de que
+// el conteo semanal la pise. Corre cada vez que un dueño abre el Panel de Admin.
+async function checkAndArchiveWeeklyHistory(){
+  const currentWeekStart = weekStartTimestampART();
+  const markerSnap = await db.ref('weeklyArchive/lastArchivedWeekStart').once('value');
+  let lastArchived = markerSnap.val();
+
+  if(!lastArchived){
+    // Primera vez que corre esto: no hay nada previo que archivar, arrancamos desde ahora.
+    await db.ref('weeklyArchive/lastArchivedWeekStart').set(currentWeekStart);
+    return;
+  }
+
+  const usersSnap = await db.ref('users').once('value');
+  const usersMap = usersSnap.val() || {};
+
+  while(lastArchived < currentWeekStart){
+    const weekEnd = lastArchived + 7*24*60*60*1000;
+    const logsSnap = await db.ref('logs').orderByChild('timestamp').startAt(lastArchived).endAt(weekEnd - 1).once('value');
+    const entries = {};
+    logsSnap.forEach(child=>{
+      const log = child.val();
+      if(!entries[log.uid]){
+        entries[log.uid] = {
+          username: (usersMap[log.uid] && usersMap[log.uid].username) || log.username || 'Usuario',
+          jobsCount: 0,
+          totalEarned: 0
+        };
+      }
+      entries[log.uid].jobsCount++;
+      entries[log.uid].totalEarned += (log.pay||0);
+    });
+
+    if(Object.keys(entries).length > 0){
+      await db.ref('weeklyHistory').push({
+        weekStart: lastArchived,
+        weekEnd: weekEnd,
+        entries,
+        timestamp: Date.now()
+      });
+    }
+
+    lastArchived = weekEnd;
+    await db.ref('weeklyArchive/lastArchivedWeekStart').set(lastArchived);
+  }
+}
+
+function renderWeeklyHistory(data){
+  const box = document.getElementById('weeklyHistoryWrap');
+  const weeks = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.weekStart - a.weekStart);
+  if(weeks.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se archivó ninguna semana.</div>'; return; }
+
+  box.innerHTML = weeks.map(w=>{
+    const entries = Object.values(w.entries||{}).sort((a,b)=> b.jobsCount - a.jobsCount);
+    const rows = entries.map(e=>`
+      <tr><td>${e.username}</td><td>${e.jobsCount}</td><td>${fmtMoney(e.totalEarned)}</td></tr>
+    `).join('');
+    return `
+      <div style="margin-bottom:14px;">
+        <div class="payment-row">
+          <span><b>Semana del ${fmtDateShort(w.weekStart)} al ${fmtDateShort(w.weekEnd - 1)}</b></span>
+          <button class="dismiss-btn" data-key="${w.key}">Borrar</button>
+        </div>
+        <table class="admin-table" style="margin-top:6px;">
+          <thead><tr><th>Usuario</th><th>Trabajos</th><th>Ganado</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar esta semana del historial de trabajos?')) return;
+      db.ref('weeklyHistory/'+btn.dataset.key).remove();
+    });
+  });
+}
+
 function fmtMoney(n){
   return '$' + (n||0).toLocaleString('es-AR');
 }
@@ -1185,6 +1273,12 @@ let adminStarted = false;
 function startAdminListeners(){
   if(adminStarted) return;
   adminStarted = true;
+
+  checkAndArchiveWeeklyHistory();
+
+  db.ref('weeklyHistory').on('value', snap=>{
+    renderWeeklyHistory(snap.val() || {});
+  });
 
   db.ref('users').on('value', snap=>{
     adminUsersCache = snap.val() || {};
@@ -1312,6 +1406,7 @@ function renderAdminTable(){
     const weekly = adminWeeklyCounts[uid] || 0;
     const owed = bal.owed || 0;
     const isOwner = u.role === 'owner';
+    const isSelf = uid === currentUser.uid;
     return `
       <tr>
         <td>${u.username}${isOwner ? ' <span class="role-badge owner" style="margin-left:6px;">★ Dueño</span>' : ''}</td>
@@ -1319,6 +1414,7 @@ function renderAdminTable(){
         <td>${fmtMoney(bal.totalEarned)}</td>
         <td class="owed-amount ${owed>0?'has-debt':''}">${fmtMoney(owed)}</td>
         <td><button class="pay-btn" data-uid="${uid}" data-username="${u.username}" data-amount="${owed}" ${owed<=0?'disabled':''}>Pagado</button></td>
+        <td>${isSelf ? '' : `<button class="dismiss-btn" data-action="deluser" data-uid="${uid}" data-username="${u.username}">Borrar</button>`}</td>
       </tr>
     `;
   }).join('');
@@ -1326,11 +1422,26 @@ function renderAdminTable(){
   box.innerHTML = `
     <table class="admin-table">
       <thead>
-        <tr><th>Usuario</th><th>Trabajos esta semana</th><th>Ganado (total)</th><th>Le debo</th><th></th></tr>
+        <tr><th>Usuario</th><th>Trabajos esta semana</th><th>Ganado (total)</th><th>Le debo</th><th></th><th></th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
   `;
+
+  box.querySelectorAll('button[data-action="deluser"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const uid = btn.dataset.uid;
+      const username = btn.dataset.username;
+      const typed = prompt(`Esto va a sacar a "${username}" de todas las listas y tablas de la app (no borra su acceso de login). Para confirmar, escribí la palabra "confirmar":`);
+      if(typed === null) return;
+      if(typed.trim().toLowerCase() !== 'confirmar'){
+        alert('No escribiste "confirmar" tal cual, así que no se borró nada.');
+        return;
+      }
+      await db.ref('users/'+uid).remove();
+      alert(`${username} fue borrado de las listas.`);
+    });
+  });
 
   box.querySelectorAll('.pay-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -1347,15 +1458,21 @@ function renderAdminTable(){
 
 function renderPaymentsHistory(data){
   const box = document.getElementById('paymentsHistory');
-  const items = Object.values(data).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
+  const items = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
   if(items.length === 0){
     box.innerHTML = '<div class="admin-empty">Todavía no se registraron pagos.</div>';
     return;
   }
   box.innerHTML = `<div class="payments-list">${items.map(p=>{
     const date = new Date(p.timestamp).toLocaleString('es-AR');
-    return `<div class="payment-row"><span><b>${p.username}</b> — ${fmtMoney(p.amount)}</span><span>${date}</span></div>`;
+    return `<div class="payment-row"><span><b>${p.username}</b> — ${fmtMoney(p.amount)}</span><span style="display:flex;align-items:center;gap:10px;">${date} <button class="dismiss-btn" data-key="${p.key}">Borrar</button></span></div>`;
   }).join('')}</div>`;
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar este registro de pago del historial? No afecta lo que ya se le pagó.')) return;
+      db.ref('payments/'+btn.dataset.key).remove();
+    });
+  });
 }
 
 function setSection(section){ // 'mall' | 'admin' | 'caja'
@@ -2000,7 +2117,7 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
 
 function renderCajaHistorial(data){
   const box = document.getElementById('cajaHistorial');
-  const items = Object.values(data).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
+  const items = Object.entries(data).map(([key,v])=>({key, ...v})).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
   if(items.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se registró ningún reparto.</div>'; return; }
   box.innerHTML = `<div class="payments-list">${items.map(h=>{
     const date = new Date(h.timestamp).toLocaleString('es-AR');
@@ -2011,8 +2128,14 @@ function renderCajaHistorial(data){
       // Reparto viejo, guardado con el esquema fijo de 2 dueños
       detalle = `<b>${h.ownerAName||'Dueño A'}</b>: ${fmtMoneyCaja(h.retiroA)} / <b>${h.ownerBName||'Dueño B'}</b>: ${fmtMoneyCaja(h.retiroB)}`;
     }
-    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — ${detalle}</span><span>${date} (${h.hechoPor})</span></div>`;
+    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — ${detalle}</span><span style="display:flex;align-items:center;gap:10px;">${date} (${h.hechoPor}) <button class="dismiss-btn" data-key="${h.key}">Borrar</button></span></div>`;
   }).join('')}</div>`;
+  box.querySelectorAll('.dismiss-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar este registro del historial de repartos? Es solo el registro, no revierte pagos ya hechos.')) return;
+      db.ref('caja/historial/'+btn.dataset.key).remove();
+    });
+  });
 }
 
 document.querySelectorAll('.collapsible-header').forEach(header=>{
