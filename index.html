@@ -78,7 +78,11 @@ body{
 .collapsible-header.collapsed .arrow{transform:rotate(-90deg);}
 .collapsible-content.collapsed{display:none;}
 .owner-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-.owner-row input{flex:1;}
+.owner-row input{
+  flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;
+}
+.owner-row input:focus{outline:none;border-color:var(--administracion);}
 
 .status-bars{display:flex;flex-direction:column;gap:10px;}
 .status-row{display:grid;grid-template-columns:150px 1fr 74px;align-items:center;gap:12px;}
