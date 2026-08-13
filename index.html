@@ -1207,8 +1207,8 @@ function startAdminListeners(){
     renderAdminTable();
   });
 
-  db.ref('payments').orderByChild('timestamp').limitToLast(20).on('value', snap=>{
-    renderPaymentsHistory(snap);
+  db.ref('payments').on('value', snap=>{
+    renderPaymentsHistory(snap.val() || {});
   });
 
   db.ref('logs').orderByChild('timestamp').limitToLast(150).on('value', snap=>{
@@ -1345,11 +1345,9 @@ function renderAdminTable(){
   });
 }
 
-function renderPaymentsHistory(snap){
+function renderPaymentsHistory(data){
   const box = document.getElementById('paymentsHistory');
-  const items = [];
-  snap.forEach(child => items.push(child.val()));
-  items.reverse(); // más reciente primero
+  const items = Object.values(data).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
   if(items.length === 0){
     box.innerHTML = '<div class="admin-empty">Todavía no se registraron pagos.</div>';
     return;
@@ -1542,9 +1540,9 @@ function startCajaListeners(){
     renderCajaResumen();
   });
 
-  db.ref('caja/historial').orderByChild('timestamp').limitToLast(20).on('value', snap=>{
+  db.ref('caja/historial').on('value', snap=>{
     cajaHistorialCache = snap.val() || {};
-    renderCajaHistorial(snap);
+    renderCajaHistorial(cajaHistorialCache);
   });
 }
 
@@ -2000,11 +1998,9 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   await db.ref().update(updates);
 });
 
-function renderCajaHistorial(snap){
+function renderCajaHistorial(data){
   const box = document.getElementById('cajaHistorial');
-  const items = [];
-  snap.forEach(child=>items.push(child.val()));
-  items.reverse();
+  const items = Object.values(data).sort((a,b)=> b.timestamp - a.timestamp).slice(0,20);
   if(items.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se registró ningún reparto.</div>'; return; }
   box.innerHTML = `<div class="payments-list">${items.map(h=>{
     const date = new Date(h.timestamp).toLocaleString('es-AR');
