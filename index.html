@@ -77,6 +77,8 @@ body{
 .collapsible-header .arrow{display:inline-block;font-size:22px;transition:transform .18s ease;color:var(--text-dimmer);}
 .collapsible-header.collapsed .arrow{transform:rotate(-90deg);}
 .collapsible-content.collapsed{display:none;}
+.owner-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.owner-row input{flex:1;}
 
 .status-bars{display:flex;flex-direction:column;gap:10px;}
 .status-row{display:grid;grid-template-columns:150px 1fr 74px;align-items:center;gap:12px;}
@@ -404,12 +406,12 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <h2>💰 Cierre de Caja</h2>
     </div>
 
-    <h3 class="admin-subheading collapsible-header" data-target="sec-nombres"><span class="arrow">▾</span> Nombres de los dueños</h3>
+    <h3 class="admin-subheading collapsible-header" data-target="sec-nombres"><span class="arrow">▾</span> Dueños</h3>
     <div class="collapsible-content" id="sec-nombres">
+      <div id="ownersFormWrap"></div>
       <div class="caja-form-row">
-        <input type="text" id="ownerAName" placeholder="Dueño A">
-        <input type="text" id="ownerBName" placeholder="Dueño B">
-        <button class="pay-btn" id="saveOwnerNamesBtn">Guardar nombres</button>
+        <button class="dismiss-all-btn" id="addOwnerBtn">+ Agregar dueño</button>
+        <button class="pay-btn" id="saveOwnerNamesBtn">Guardar cambios</button>
       </div>
     </div>
 
@@ -427,10 +429,22 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <div id="abastTotales" class="caja-totales"></div>
       <div id="abastTableWrap"></div>
 
+      <p class="sub" style="margin:10px 0 6px;">Editá precios directo en la tabla y usá el − / + del stock. Al guardar, si el stock bajó se cuenta como venta; si subió, como corrección manual.</p>
       <div id="medicinaTableWrap"></div>
-      <div class="caja-form-row">
+
+      <button class="dismiss-all-btn" id="toggleNewItemFormBtn" style="margin:2px 0 10px;">+ Agregar ítem nuevo</button>
+      <div class="caja-form-row" id="newItemFormRow" style="display:none;">
+        <input type="text" id="newItemName" placeholder="Nombre del ítem">
+        <input type="number" id="newItemSell" placeholder="Precio venta $">
+        <input type="number" id="newItemBuy" placeholder="Precio compra $">
+        <button class="pay-btn" id="addMedicineItemBtn">Crear ítem</button>
+      </div>
+
+      <div style="margin-top:18px;">
         <button class="pay-btn" id="saveMedicinaBtn">Guardar cambios de medicina</button>
       </div>
+
+      <div id="medicinaVentasList" style="margin-top:14px;"></div>
       <div id="medicinaTotales" class="caja-totales"></div>
     </div>
 
@@ -451,6 +465,19 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <div id="ropaTableWrap2"></div>
     </div>
 
+    <h3 class="admin-subheading collapsible-header" data-target="sec-gastos"><span class="arrow">▾</span> 🛠️ Gastos extraordinarios</h3>
+    <div class="collapsible-content" id="sec-gastos">
+      <p class="sub" style="margin-bottom:12px;">Para compras grandes y puntuales (un vehículo, muebles, etc.). Funciona igual que Abastecimiento: si uno pone más, el otro le debe la mitad.</p>
+      <div class="caja-form-row">
+        <input type="text" id="gastoNombre" placeholder="Nombre del gasto">
+        <select id="gastoDueno"></select>
+        <input type="number" id="gastoMonto" placeholder="Monto $">
+        <button class="pay-btn" id="addGastoBtn">Agregar gasto</button>
+      </div>
+      <div id="gastosTotales" class="caja-totales"></div>
+      <div id="gastosTableWrap"></div>
+    </div>
+
     <h3 class="admin-subheading collapsible-header" data-target="sec-cajareg"><span class="arrow">▾</span> 💵 Caja registradora</h3>
     <div class="collapsible-content" id="sec-cajareg">
       <div class="caja-form-row">
@@ -461,11 +488,7 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
 
     <h3 class="admin-subheading collapsible-header" data-target="sec-reparto"><span class="arrow">▾</span> 📊 Reparto sugerido</h3>
     <div class="collapsible-content" id="sec-reparto">
-      <p class="sub" style="margin-bottom:12px;">El ingreso pasivo se calcula solo: lo que queda en caja después de pagar la ropa, menos lo que ya se explica con ventas de medicina y bebidas. Ese resto (pasivo + medicina) siempre se reparte 50/50.</p>
-      <div class="caja-form-row">
-        <input type="number" id="bebidasVentaInput" placeholder="Ventas de bebidas esta ronda (manual)">
-        <button class="pay-btn" id="saveBebidasBtn">Guardar</button>
-      </div>
+      <p class="sub" style="margin-bottom:12px;">El ingreso pasivo se calcula solo: lo que queda en caja después de pagar la ropa, menos lo que ya se explica con ventas de medicina. Ese resto (pasivo + medicina) siempre se reparte 50/50. Abastecimiento y Gastos extraordinarios se ajustan aparte, como deudas 50/50.</p>
       <div id="cajaResumen" class="caja-resumen"></div>
       <button class="dismiss-all-btn" id="cerrarCajaBtn" style="border-color:var(--contabilidad);color:var(--contabilidad);">Registrar reparto y reiniciar</button>
     </div>
@@ -1354,34 +1377,72 @@ document.getElementById('cajaToggleBtn').addEventListener('click', ()=> setSecti
 // ====== CIERRE DE CAJA ======
 
 let cajaStarted = false;
-let cajaConfig = {ownerAName:'Dueño A', ownerBName:'Dueño B'};
+let ownersCache = {}; // {ownerId: {name, createdAt}}
+
+function ownersList(){
+  return Object.entries(ownersCache)
+    .map(([id,v])=>({id, name:v.name, createdAt:v.createdAt||0}))
+    .sort((a,b)=>a.createdAt-b.createdAt);
+}
+function ownerName(id){
+  const o = ownersCache[id];
+  return o ? o.name : '(dueño eliminado)';
+}
 let abastCache = {};
 let ropaCache = {};
 let cajaActualCache = {amount:0};
 let cajaHistorialCache = {};
 let medicinaCache = {};
-let bebidasCache = {amount:0};
+let medicinaVentasCache = {};
+let gastosExtraCache = {};
 
-const MEDICINE_ITEMS = [
-  {key:'analgesicos', name:'Bolsa de Analgésicos', sell:620, buy:400},
-  {key:'botiquin', name:'Botiquín de primeros auxilios', sell:19900, buy:15000},
-  {key:'desinfectante', name:'Desinfectante', sell:3350, buy:3000},
-  {key:'kitmedico', name:'Kit Médico', sell:7850, buy:7500},
-  {key:'rollovendas', name:'Rollo de Vendas', sell:620, buy:400},
-  {key:'suturacremallera', name:'Sutura de Cremallera', sell:3900, buy:3500},
-  {key:'vendajehemostatico', name:'Vendaje Hemostático', sell:4450, buy:4000},
-  {key:'vendajecompresion', name:'Vendaje de compresión', sell:4100, buy:2500},
-];
+// Ítems de medicina: ahora vive en Firebase (editable), esta es solo la semilla inicial
+// por si el nodo todavía no existe la primera vez que alguien entra.
+const DEFAULT_MEDICINE_ITEMS = {
+  analgesicos: {name:'Bolsa de Analgésicos', sell:620, buy:400},
+  botiquin: {name:'Botiquín de primeros auxilios', sell:19900, buy:15000},
+  desinfectante: {name:'Desinfectante', sell:3350, buy:3000},
+  kitmedico: {name:'Kit Médico', sell:7850, buy:7500},
+  rollovendas: {name:'Rollo de Vendas', sell:620, buy:400},
+  suturacremallera: {name:'Sutura de Cremallera', sell:3900, buy:3500},
+  vendajehemostatico: {name:'Vendaje Hemostático', sell:4450, buy:4000},
+  vendajecompresion: {name:'Vendaje de compresión', sell:4100, buy:2500},
+};
+let MEDICINE_ITEMS = []; // array de {key, name, sell, buy}, se llena desde Firebase
 
 function fmtMoneyCaja(n){
   return '$' + Math.round(n||0).toLocaleString('es-AR');
 }
 
 function fillDuenoSelects(){
-  const opts = `<option value="A">${cajaConfig.ownerAName}</option><option value="B">${cajaConfig.ownerBName}</option>`;
+  const opts = ownersList().map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
   document.getElementById('abastDueno').innerHTML = opts;
   document.getElementById('ropaDueno').innerHTML = opts;
+  document.getElementById('gastoDueno').innerHTML = opts;
 }
+
+function renderOwnersForm(){
+  const box = document.getElementById('ownersFormWrap');
+  const owners = ownersList();
+  if(owners.length===0){ box.innerHTML = '<div class="admin-empty">Sin dueños cargados. Agregá el primero.</div>'; return; }
+  box.innerHTML = owners.map(o=>`
+    <div class="owner-row">
+      <input type="text" data-ownerid="${o.id}" value="${o.name}">
+      <button class="small-del-btn" data-remove="${o.id}">Quitar</button>
+    </div>
+  `).join('');
+  box.querySelectorAll('button[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.remove;
+      if(!confirm(`¿Quitar a ${ownerName(id)}? Los registros viejos a su nombre van a mostrar "(dueño eliminado)".`)) return;
+      db.ref('caja/owners/'+id).remove();
+    });
+  });
+}
+
+document.getElementById('addOwnerBtn').addEventListener('click', ()=>{
+  db.ref('caja/owners').push({name:'Nuevo dueño', createdAt: Date.now()});
+});
 
 function fillAbastItemSelect(){
   document.getElementById('abastItemSelect').innerHTML = MEDICINE_ITEMS.map(i=>
@@ -1405,15 +1466,39 @@ function startCajaListeners(){
   if(cajaStarted) return;
   cajaStarted = true;
 
-  fillAbastItemSelect();
-  updateAbastInversionPreview();
+  // Migración: si todavía no existe la lista de ítems en Firebase, la sembramos una vez
+  db.ref('caja/medicinaItems').once('value').then(snap=>{
+    if(!snap.exists()){
+      db.ref('caja/medicinaItems').set(DEFAULT_MEDICINE_ITEMS);
+    }
+  });
 
-  db.ref('caja/config').on('value', snap=>{
-    cajaConfig = snap.val() || {ownerAName:'Dueño A', ownerBName:'Dueño B'};
-    document.getElementById('ownerAName').value = cajaConfig.ownerAName;
-    document.getElementById('ownerBName').value = cajaConfig.ownerBName;
+  db.ref('caja/medicinaItems').on('value', snap=>{
+    const raw = snap.val() || {};
+    MEDICINE_ITEMS = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell, buy:raw[key].buy}));
+    fillAbastItemSelect();
+    updateAbastInversionPreview();
+    renderMedicinaTable();
+    renderCajaResumen();
+  });
+
+  // Migración: si existe el esquema viejo (2 dueños fijos) y todavía no hay 'owners', migramos una vez
+  db.ref('caja/owners').once('value').then(async ownersSnap=>{
+    if(ownersSnap.exists()) return;
+    const configSnap = await db.ref('caja/config').once('value');
+    const cfg = configSnap.val();
+    const seed = {};
+    seed['A'] = {name: (cfg && cfg.ownerAName) || 'Dueño A', createdAt: 1};
+    seed['B'] = {name: (cfg && cfg.ownerBName) || 'Dueño B', createdAt: 2};
+    await db.ref('caja/owners').set(seed);
+  });
+
+  db.ref('caja/owners').on('value', snap=>{
+    ownersCache = snap.val() || {};
+    renderOwnersForm();
     fillDuenoSelects();
     renderAbastTable();
+    renderGastosExtraTable();
     renderRopaTable();
     renderCajaResumen();
   });
@@ -1442,9 +1527,14 @@ function startCajaListeners(){
     renderCajaResumen();
   });
 
-  db.ref('caja/bebidasVenta').on('value', snap=>{
-    bebidasCache = snap.val() || {amount:0};
-    document.getElementById('bebidasVentaInput').value = bebidasCache.amount || '';
+  db.ref('caja/medicinaVentas').on('value', snap=>{
+    medicinaVentasCache = snap.val() || {};
+    renderMedicinaVentasList();
+  });
+
+  db.ref('caja/gastosExtra').on('value', snap=>{
+    gastosExtraCache = snap.val() || {};
+    renderGastosExtraTable();
     renderCajaResumen();
   });
 
@@ -1454,10 +1544,15 @@ function startCajaListeners(){
   });
 }
 
-document.getElementById('saveOwnerNamesBtn').addEventListener('click', ()=>{
-  const a = document.getElementById('ownerAName').value.trim() || 'Dueño A';
-  const b = document.getElementById('ownerBName').value.trim() || 'Dueño B';
-  db.ref('caja/config').set({ownerAName:a, ownerBName:b});
+document.getElementById('saveOwnerNamesBtn').addEventListener('click', async ()=>{
+  const updates = {};
+  document.querySelectorAll('#ownersFormWrap input[data-ownerid]').forEach(input=>{
+    const id = input.dataset.ownerid;
+    const name = input.value.trim() || 'Sin nombre';
+    if(name !== ownerName(id)) updates['caja/owners/'+id+'/name'] = name;
+  });
+  if(Object.keys(updates).length===0) return;
+  await db.ref().update(updates);
 });
 
 document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
@@ -1494,12 +1589,10 @@ document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
 
 function renderAbastTable(){
   const entries = Object.entries(abastCache).filter(([k,v])=>!v.settled);
-  const totalA = entries.filter(([k,v])=>v.owner==='A').reduce((s,[k,v])=>s+v.monto,0);
-  const totalB = entries.filter(([k,v])=>v.owner==='B').reduce((s,[k,v])=>s+v.monto,0);
-  document.getElementById('abastTotales').innerHTML = `
-    <span>Puesto por <b>${cajaConfig.ownerAName}</b>: ${fmtMoneyCaja(totalA)}</span>
-    <span>Puesto por <b>${cajaConfig.ownerBName}</b>: ${fmtMoneyCaja(totalB)}</span>
-  `;
+  document.getElementById('abastTotales').innerHTML = ownersList().map(o=>{
+    const total = entries.filter(([k,v])=>v.owner===o.id).reduce((s,[k,v])=>s+v.monto,0);
+    return `<span>Puesto por <b>${o.name}</b>: ${fmtMoneyCaja(total)}</span>`;
+  }).join('');
   const box = document.getElementById('abastTableWrap');
   if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin registros pendientes.</div>'; return; }
   const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>{
@@ -1507,7 +1600,7 @@ function renderAbastTable(){
     return `
     <tr>
       <td>${v.date}</td><td>${v.categoria}</td>
-      <td>${v.owner==='A'?cajaConfig.ownerAName:cajaConfig.ownerBName}</td>
+      <td>${ownerName(v.owner)}</td>
       <td>${fmtMoneyCaja(v.monto)}</td><td>${detalle}</td>
       <td><button class="small-del-btn" data-key="${key}">Borrar</button></td>
     </tr>
@@ -1553,16 +1646,11 @@ document.getElementById('addRopaBtn').addEventListener('click', ()=>{
 
 function renderRopaTable(){
   const entries = Object.entries(ropaCache).filter(([k,v])=>v.status!=='Cobrado');
-  const vendidaA = entries.filter(([k,v])=>v.owner==='A' && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
-  const vendidaB = entries.filter(([k,v])=>v.owner==='B' && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
-  const stockA = entries.filter(([k,v])=>v.owner==='A' && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
-  const stockB = entries.filter(([k,v])=>v.owner==='B' && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
-  document.getElementById('ropaTotales').innerHTML = `
-    <span>Vendido ${cajaConfig.ownerAName}: ${fmtMoneyCaja(vendidaA)}</span>
-    <span>Vendido ${cajaConfig.ownerBName}: ${fmtMoneyCaja(vendidaB)}</span>
-    <span>Stock ${cajaConfig.ownerAName}: ${fmtMoneyCaja(stockA)}</span>
-    <span>Stock ${cajaConfig.ownerBName}: ${fmtMoneyCaja(stockB)}</span>
-  `;
+  document.getElementById('ropaTotales').innerHTML = ownersList().map(o=>{
+    const vendida = entries.filter(([k,v])=>v.owner===o.id && v.status==='Vendido').reduce((s,[k,v])=>s+v.precio,0);
+    const stock = entries.filter(([k,v])=>v.owner===o.id && v.status==='Disponible').reduce((s,[k,v])=>s+v.precio,0);
+    return `<span>Vendido ${o.name}: ${fmtMoneyCaja(vendida)}</span> <span>Stock ${o.name}: ${fmtMoneyCaja(stock)}</span>`;
+  }).join(' ');
   renderRoperoTable(1, entries);
   renderRoperoTable(2, entries);
 }
@@ -1579,7 +1667,7 @@ function renderRoperoTable(roperoNum, allEntries){
   const rows = entries.map(([key,v], idx)=>`
     <tr>
       <td>${v.date}</td><td>${v.desc}</td>
-      <td>${v.owner==='A'?cajaConfig.ownerAName:cajaConfig.ownerBName}</td>
+      <td>${ownerName(v.owner)}</td>
       <td>${fmtMoneyCaja(v.precio)}</td><td>${v.status}</td><td>${v.notas||''}</td>
       <td style="white-space:nowrap;">
         <button class="small-del-btn" data-action="up" data-key="${key}" ${idx===0?'disabled':''}>↑</button>
@@ -1627,22 +1715,47 @@ document.getElementById('saveCajaBtn').addEventListener('click', ()=>{
 
 function renderMedicinaTable(){
   const box = document.getElementById('medicinaTableWrap');
+  if(MEDICINE_ITEMS.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; return; }
   const rows = MEDICINE_ITEMS.map(item=>{
     const st = medicinaCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
     return `
       <tr>
         <td>${item.name}</td>
-        <td>${fmtMoneyCaja(item.sell)}</td>
-        <td>${fmtMoneyCaja(item.buy)}</td>
+        <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
+        <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
         <td style="white-space:nowrap;">
-          <input type="number" min="0" class="med-qty-input med-sell-input" data-key="${item.key}" placeholder="0" title="Cantidad vendida">
-          <span style="margin:0 8px;font-family:'JetBrains Mono',monospace;font-weight:700;">${st.stock||0}</span>
-          <span title="El stock sube solo cuando cargás una compra en Abastecimiento de medicamentos" style="color:var(--contabilidad);cursor:help;">+</span>
+          <button class="small-del-btn" data-action="stockdown" data-key="${item.key}">−</button>
+          <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-key="${item.key}" value="${st.stock||0}">
+          <button class="small-del-btn" data-action="stockup" data-key="${item.key}">+</button>
         </td>
+        <td><button class="small-del-btn" data-action="delitem" data-key="${item.key}">Quitar ítem</button></td>
       </tr>
     `;
   }).join('');
-  box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th><th>Precio venta</th><th>Precio compra</th><th>− Vendido / Stock / +</th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th><th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+      input.value = Math.max(0, (Number(input.value)||0) - 1);
+    });
+  });
+  box.querySelectorAll('button[data-action="stockup"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+      input.value = (Number(input.value)||0) + 1;
+    });
+  });
+  box.querySelectorAll('button[data-action="delitem"]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const item = MEDICINE_ITEMS.find(i=>i.key===btn.dataset.key);
+      if(!confirm(`¿Quitar "${item.name}" de la lista? Se borra también su stock actual.`)) return;
+      await db.ref().update({
+        ['caja/medicinaItems/'+btn.dataset.key]: null,
+        ['caja/medicina/'+btn.dataset.key]: null
+      });
+    });
+  });
 
   const ventaTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).ventaAcumulada||0), 0);
   const compraTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).compraAcumulada||0), 0);
@@ -1652,92 +1765,210 @@ function renderMedicinaTable(){
   `;
 }
 
+document.getElementById('toggleNewItemFormBtn').addEventListener('click', ()=>{
+  const row = document.getElementById('newItemFormRow');
+  row.style.display = row.style.display==='none' ? 'flex' : 'none';
+});
+
+document.getElementById('addMedicineItemBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('newItemName').value.trim();
+  const sell = Number(document.getElementById('newItemSell').value);
+  const buy = Number(document.getElementById('newItemBuy').value);
+  if(!name){ alert('Poné un nombre.'); return; }
+  if(!sell || sell<=0 || !buy || buy<=0){ alert('Poné precios de venta y compra válidos.'); return; }
+  const newRef = db.ref('caja/medicinaItems').push();
+  await newRef.set({name, sell, buy});
+  document.getElementById('newItemName').value = '';
+  document.getElementById('newItemSell').value = '';
+  document.getElementById('newItemBuy').value = '';
+  document.getElementById('newItemFormRow').style.display = 'none';
+});
+
 document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
   const updates = {};
   let changed = false;
   MEDICINE_ITEMS.forEach(item=>{
-    const vendidoInput = document.querySelector(`.med-qty-input[data-key="${item.key}"]`);
-    const vendido = Number(vendidoInput.value) || 0;
-    if(vendido>0){
+    const st = medicinaCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+    const sellInput = document.querySelector(`.med-qty-input[data-key="${item.key}"][data-field="sell"]`);
+    const buyInput = document.querySelector(`.med-qty-input[data-key="${item.key}"][data-field="buy"]`);
+    const stockInput = document.querySelector(`.med-stock-input[data-key="${item.key}"]`);
+
+    const newSell = Number(sellInput.value) || item.sell;
+    const newBuy = Number(buyInput.value) || item.buy;
+    const newStock = Number(stockInput.value) || 0;
+    const oldStock = st.stock || 0;
+    const diff = newStock - oldStock;
+
+    let ventaAcumulada = st.ventaAcumulada || 0;
+    if(diff < 0){
+      // bajó el stock a mano: se cuenta como venta
+      const qtyVendida = -diff;
+      const montoVenta = qtyVendida * item.sell;
+      ventaAcumulada += montoVenta;
       changed = true;
-      const st = medicinaCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
-      updates['caja/medicina/'+item.key] = {
-        stock: Math.max(0, (st.stock||0) - vendido),
-        ventaAcumulada: (st.ventaAcumulada||0) + vendido*item.sell,
-        compraAcumulada: st.compraAcumulada||0
+      const ventaRef = db.ref('caja/medicinaVentas').push();
+      updates['caja/medicinaVentas/'+ventaRef.key] = {
+        itemKey: item.key, itemName: item.name, qty: qtyVendida, monto: montoVenta, timestamp: Date.now()
       };
     }
-    vendidoInput.value = '';
+    // si diff > 0, es una corrección manual de stock: no se cuenta como venta ni como compra
+
+    if(newSell !== item.sell || newBuy !== item.buy){
+      changed = true;
+      updates['caja/medicinaItems/'+item.key+'/sell'] = newSell;
+      updates['caja/medicinaItems/'+item.key+'/buy'] = newBuy;
+    }
+    if(diff !== 0){
+      changed = true;
+      updates['caja/medicina/'+item.key+'/stock'] = newStock;
+      updates['caja/medicina/'+item.key+'/ventaAcumulada'] = ventaAcumulada;
+    }
   });
   if(!changed){ return; }
   await db.ref().update(updates);
 });
 
-document.getElementById('saveBebidasBtn').addEventListener('click', ()=>{
-  const val = Number(document.getElementById('bebidasVentaInput').value);
-  if(isNaN(val) || val<0){ alert('Poné un monto válido.'); return; }
-  db.ref('caja/bebidasVenta').set({amount: val, updatedAt: Date.now()});
+function renderMedicinaVentasList(){
+  const box = document.getElementById('medicinaVentasList');
+  const entries = Object.entries(medicinaVentasCache);
+  if(entries.length===0){ box.innerHTML = ''; return; }
+  entries.sort((a,b)=> b[1].timestamp - a[1].timestamp);
+  box.innerHTML = `<div class="payments-list">${entries.map(([key,v])=>`
+    <div class="payment-row">
+      <span>${v.itemName} — ${v.qty} un. — ${fmtMoneyCaja(v.monto)}</span>
+      <button class="small-del-btn" data-key="${key}" data-itemkey="${v.itemKey}" data-qty="${v.qty}" data-monto="${v.monto}">Borrar</button>
+    </div>
+  `).join('')}</div>`;
+
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('¿Borrar este registro de venta? El stock no se toca, solo se descuenta la plata y se borra el registro.')) return;
+      const {key, itemkey, monto} = btn.dataset;
+      await db.ref('caja/medicina/'+itemkey).transaction(st=>{
+        st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+        st.ventaAcumulada = Math.max(0, (st.ventaAcumulada||0) - Number(monto));
+        return st;
+      });
+      await db.ref('caja/medicinaVentas/'+key).remove();
+    });
+  });
+}
+
+document.getElementById('addGastoBtn').addEventListener('click', ()=>{
+  const nombre = document.getElementById('gastoNombre').value.trim();
+  const owner = document.getElementById('gastoDueno').value;
+  const monto = Number(document.getElementById('gastoMonto').value);
+  if(!nombre){ alert('Poné un nombre para el gasto.'); return; }
+  if(!monto || monto<=0){ alert('Poné un monto válido.'); return; }
+  db.ref('caja/gastosExtra').push({
+    date: new Date().toISOString().slice(0,10),
+    nombre, owner, monto,
+    settled: false,
+    timestamp: Date.now()
+  });
+  document.getElementById('gastoNombre').value = '';
+  document.getElementById('gastoMonto').value = '';
 });
 
+function renderGastosExtraTable(){
+  const entries = Object.entries(gastosExtraCache).filter(([k,v])=>!v.settled);
+  document.getElementById('gastosTotales').innerHTML = ownersList().map(o=>{
+    const total = entries.filter(([k,v])=>v.owner===o.id).reduce((s,[k,v])=>s+v.monto,0);
+    return `<span>Puesto por <b>${o.name}</b>: ${fmtMoneyCaja(total)}</span>`;
+  }).join('');
+  const box = document.getElementById('gastosTableWrap');
+  if(entries.length===0){ box.innerHTML = '<div class="admin-empty">Sin gastos pendientes.</div>'; return; }
+  const rows = entries.sort((a,b)=>b[1].timestamp-a[1].timestamp).map(([key,v])=>`
+    <tr>
+      <td>${v.date}</td><td>${v.nombre}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td>${fmtMoneyCaja(v.monto)}</td>
+      <td><button class="small-del-btn" data-key="${key}">Borrar</button></td>
+    </tr>
+  `).join('');
+  box.innerHTML = `<table class="admin-table"><thead><tr><th>Fecha</th><th>Nombre</th><th>Dueño</th><th>Monto</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(confirm('¿Borrar este gasto?')) db.ref('caja/gastosExtra/'+btn.dataset.key).remove();
+    });
+  });
+}
+
 function computeCajaReparto(){
+  const owners = ownersList();
+  const n = owners.length || 1;
+
   const abastEntries = Object.values(abastCache).filter(v=>!v.settled);
-  const totalA = abastEntries.filter(v=>v.owner==='A').reduce((s,v)=>s+v.monto,0);
-  const totalB = abastEntries.filter(v=>v.owner==='B').reduce((s,v)=>s+v.monto,0);
-  const totalAbast = totalA + totalB;
-  const justPart = totalAbast/2;
-  const debtBtoA = Math.max(0, justPart - totalB);
-  const debtAtoB = Math.max(0, justPart - totalA);
+  const totalAbast = abastEntries.reduce((s,v)=>s+v.monto,0);
+  const abastJustPart = totalAbast/n;
+
+  const gastoEntries = Object.values(gastosExtraCache).filter(v=>!v.settled);
+  const totalGastos = gastoEntries.reduce((s,v)=>s+v.monto,0);
+  const gastoJustPart = totalGastos/n;
 
   const ropaEntries = Object.values(ropaCache).filter(v=>v.status!=='Cobrado');
-  const vendidaA = ropaEntries.filter(v=>v.owner==='A' && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
-  const vendidaB = ropaEntries.filter(v=>v.owner==='B' && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
-
   const medicinaVentaTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).ventaAcumulada||0), 0);
-  const bebidasVenta = bebidasCache.amount || 0;
-
   const cajaActual = cajaActualCache.amount || 0;
-  const cajaRestante = Math.max(0, cajaActual - vendidaA - vendidaB);
-  const pasivoEstimado = cajaRestante - medicinaVentaTotal - bebidasVenta;
-  const gananciaA = cajaRestante/2;
-  const gananciaB = cajaRestante/2;
 
-  const retiroA = vendidaA + gananciaA + debtBtoA - debtAtoB;
-  const retiroB = vendidaB + gananciaB + debtAtoB - debtBtoA;
+  const vendidaTotalTodos = ropaEntries.filter(v=>v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+  const cajaRestante = Math.max(0, cajaActual - vendidaTotalTodos);
+  const pasivoEstimado = cajaRestante - medicinaVentaTotal;
+  const gananciaPorDueno = cajaRestante / n;
 
-  return {totalA, totalB, totalAbast, justPart, debtBtoA, debtAtoB, vendidaA, vendidaB, medicinaVentaTotal, bebidasVenta, cajaActual, cajaRestante, pasivoEstimado, gananciaA, gananciaB, retiroA, retiroB};
+  const perOwner = owners.map(o=>{
+    const vendida = ropaEntries.filter(v=>v.owner===o.id && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
+    const puestoAbast = abastEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
+    const abastAjuste = puestoAbast - abastJustPart; // + le deben, − debe poner
+    const puestoGasto = gastoEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
+    const gastoAjuste = puestoGasto - gastoJustPart;
+    const retiro = vendida + gananciaPorDueno + abastAjuste + gastoAjuste;
+    return {id:o.id, name:o.name, vendida, puestoAbast, abastAjuste, puestoGasto, gastoAjuste, retiro};
+  });
+
+  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, medicinaVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno};
+}
+
+function fmtSigned(n){
+  const sign = n>0 ? '+' : (n<0 ? '−' : '');
+  return sign + fmtMoneyCaja(Math.abs(n));
 }
 
 function renderCajaResumen(){
   const box = document.getElementById('cajaResumen');
   if(!box) return;
   const r = computeCajaReparto();
-  const nameA = cajaConfig.ownerAName, nameB = cajaConfig.ownerBName;
-  box.innerHTML = `
-    <div class="r-row"><span>Ropa vendida a pagar a ${nameA}</span><span>${fmtMoneyCaja(r.vendidaA)}</span></div>
-    <div class="r-row"><span>Ropa vendida a pagar a ${nameB}</span><span>${fmtMoneyCaja(r.vendidaB)}</span></div>
+  if(r.owners.length===0){ box.innerHTML = '<div class="admin-empty">Cargá al menos un dueño arriba.</div>'; return; }
+  let html = `
     <div class="r-row"><span>Caja restante después de ropa</span><span>${fmtMoneyCaja(r.cajaRestante)}</span></div>
     <div class="r-row"><span>— Explicado por venta de medicina</span><span>${fmtMoneyCaja(r.medicinaVentaTotal)}</span></div>
-    <div class="r-row"><span>— Explicado por venta de bebidas</span><span>${fmtMoneyCaja(r.bebidasVenta)}</span></div>
     <div class="r-row"><span>— Ingreso pasivo estimado (resto sin explicar)</span><span>${fmtMoneyCaja(r.pasivoEstimado)}</span></div>
-    <div class="r-row"><span>Ganancia 50% ${nameA} (medicina + bebidas + pasivo)</span><span>${fmtMoneyCaja(r.gananciaA)}</span></div>
-    <div class="r-row"><span>Ganancia 50% ${nameB} (medicina + bebidas + pasivo)</span><span>${fmtMoneyCaja(r.gananciaB)}</span></div>
-    <div class="r-row"><span>${nameB} le debe a ${nameA} (abastecimiento)</span><span>${fmtMoneyCaja(r.debtBtoA)}</span></div>
-    <div class="r-row"><span>${nameA} le debe a ${nameB} (abastecimiento)</span><span>${fmtMoneyCaja(r.debtAtoB)}</span></div>
-    <div class="r-row total"><span>${nameA} retira</span><span>${fmtMoneyCaja(r.retiroA)}</span></div>
-    <div class="r-row total"><span>${nameB} retira</span><span>${fmtMoneyCaja(r.retiroB)}</span></div>
+    <div class="r-row"><span>Ganancia por dueño (medicina + pasivo, repartido entre ${r.n})</span><span>${fmtMoneyCaja(r.gananciaPorDueno)}</span></div>
   `;
+  r.owners.forEach(o=>{
+    html += `<div class="r-row"><span>Ropa vendida a pagar a ${o.name}</span><span>${fmtMoneyCaja(o.vendida)}</span></div>`;
+    html += `<div class="r-row"><span>Ajuste de abastecimiento — ${o.name}</span><span>${fmtSigned(o.abastAjuste)}</span></div>`;
+    html += `<div class="r-row"><span>Ajuste de gastos extraordinarios — ${o.name}</span><span>${fmtSigned(o.gastoAjuste)}</span></div>`;
+  });
+  r.owners.forEach(o=>{
+    html += `<div class="r-row total"><span>${o.name} retira</span><span>${fmtMoneyCaja(o.retiro)}</span></div>`;
+  });
+  box.innerHTML = html;
 }
 
 document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   const r = computeCajaReparto();
-  const msg = `¿Confirmás el reparto?\n\n${cajaConfig.ownerAName} retira: ${fmtMoneyCaja(r.retiroA)}\n${cajaConfig.ownerBName} retira: ${fmtMoneyCaja(r.retiroB)}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento actuales, y pone la caja en $0.`;
+  if(r.owners.length===0){ alert('Cargá al menos un dueño antes de repartir.'); return; }
+  const detalle = r.owners.map(o=>`${o.name} retira: ${fmtMoneyCaja(o.retiro)}`).join('\n');
+  const msg = `¿Confirmás el reparto?\n\n${detalle}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento y gastos extraordinarios actuales, y pone la caja en $0.`;
   if(!confirm(msg)) return;
+
+  const retiros = {};
+  r.owners.forEach(o=>{ retiros[o.id] = {name:o.name, monto:o.retiro}; });
 
   await db.ref('caja/historial').push({
     date: new Date().toISOString().slice(0,10),
     cajaMonto: r.cajaActual,
-    retiroA: r.retiroA,
-    retiroB: r.retiroB,
+    retiros,
     hechoPor: currentUser.username,
     timestamp: Date.now()
   });
@@ -1751,12 +1982,16 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   Object.entries(abastCache).forEach(([key,v])=>{
     if(!v.settled) updates['caja/abastecimiento/'+key+'/settled'] = true;
   });
+  // Saldar deudas de gastos extraordinarios actuales
+  Object.entries(gastosExtraCache).forEach(([key,v])=>{
+    if(!v.settled) updates['caja/gastosExtra/'+key+'/settled'] = true;
+  });
   // Reiniciar lo vendido/comprado de medicina esta ronda (el stock físico no se toca)
   MEDICINE_ITEMS.forEach(item=>{
     const st = medicinaCache[item.key];
     if(st) updates['caja/medicina/'+item.key] = {stock: st.stock||0, ventaAcumulada: 0, compraAcumulada: 0};
   });
-  updates['caja/bebidasVenta'] = {amount:0, updatedAt: Date.now()};
+  updates['caja/medicinaVentas'] = null;
   updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
   await db.ref().update(updates);
 });
@@ -1769,7 +2004,14 @@ function renderCajaHistorial(snap){
   if(items.length===0){ box.innerHTML = '<div class="admin-empty">Todavía no se registró ningún reparto.</div>'; return; }
   box.innerHTML = `<div class="payments-list">${items.map(h=>{
     const date = new Date(h.timestamp).toLocaleString('es-AR');
-    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — <b>${cajaConfig.ownerAName}</b>: ${fmtMoneyCaja(h.retiroA)} / <b>${cajaConfig.ownerBName}</b>: ${fmtMoneyCaja(h.retiroB)}</span><span>${date} (${h.hechoPor})</span></div>`;
+    let detalle;
+    if(h.retiros){
+      detalle = Object.values(h.retiros).map(r=>`<b>${r.name}</b>: ${fmtMoneyCaja(r.monto)}`).join(' / ');
+    } else {
+      // Reparto viejo, guardado con el esquema fijo de 2 dueños
+      detalle = `<b>${h.ownerAName||'Dueño A'}</b>: ${fmtMoneyCaja(h.retiroA)} / <b>${h.ownerBName||'Dueño B'}</b>: ${fmtMoneyCaja(h.retiroB)}`;
+    }
+    return `<div class="payment-row"><span>Caja ${fmtMoneyCaja(h.cajaMonto)} — ${detalle}</span><span>${date} (${h.hechoPor})</span></div>`;
   }).join('')}</div>`;
 }
 
