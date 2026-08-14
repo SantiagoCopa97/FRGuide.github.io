@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manual del Mall — GTA Hub RP</title>
+<title>Logística de Mall — GTA Hub RP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -434,6 +434,12 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
         Mostrarme "🛒 Historial de ventas" en mi barra de navegación
       </label>
     </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-cajasecciones"><span class="arrow">▾</span> Secciones de Cierre de Caja (general, para todos los dueños)</h3>
+    <div class="collapsible-content" id="cfg-sec-cajasecciones">
+      <p class="sub" style="margin-bottom:10px;">Esto no es personal — afecta a todos los dueños por igual. Los datos se guardan siempre, esto solo oculta la sección del todo (no es lo mismo que colapsarla con la flecha).</p>
+      <div id="cfgSectionsWrap"></div>
+    </div>
   </div>
 
   <div id="ventasView" style="display:none;">
@@ -504,10 +510,11 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       </div>
     </div>
 
-    <h3 class="admin-subheading collapsible-header" data-target="sec-medicina"><span class="arrow">▾</span> 💊 Medicina — stock y ventas</h3>
-    <div class="collapsible-content" id="sec-medicina">
-      <p class="sub" style="margin-bottom:12px;">Cargá una compra de stock (suma solo) o cuánto se vendió (−) de cada ítem, y guardá.</p>
+    <h3 class="admin-subheading collapsible-header" data-target="sec-productos"><span class="arrow">▾</span> 🏪 Productos — stock y ventas</h3>
+    <div class="collapsible-content" id="sec-productos">
+      <p class="sub" style="margin-bottom:12px;">Registrá una compra de stock para cualquier categoría — se suma sola al ítem correspondiente y queda como deuda 50/50, igual que antes.</p>
       <div class="caja-form-row">
+        <select id="abastCategoria"></select>
         <select id="abastDueno"></select>
         <select id="abastItemSelect"></select>
         <input type="number" id="abastCantidad" placeholder="Cantidad" min="1">
@@ -518,38 +525,24 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <div id="abastTotales" class="caja-totales"></div>
       <div id="abastTableWrap"></div>
 
-      <p class="sub" style="margin:10px 0 6px;">Editá precios directo en la tabla y usá el − / + del stock. Al guardar, si el stock bajó se cuenta como venta; si subió, como corrección manual.</p>
-      <div id="medicinaTableWrap"></div>
-
-      <button class="dismiss-all-btn" id="toggleNewItemFormBtn" style="margin:2px 0 10px;">+ Agregar ítem nuevo</button>
-      <div class="caja-form-row" id="newItemFormRow" style="display:none;">
-        <input type="text" id="newItemName" placeholder="Nombre del ítem">
-        <input type="number" id="newItemSell" placeholder="Precio venta $">
-        <input type="number" id="newItemBuy" placeholder="Precio compra $">
-        <button class="pay-btn" id="addMedicineItemBtn">Crear ítem</button>
-      </div>
-
-      <div style="margin-top:18px;">
-        <button class="pay-btn" id="saveMedicinaBtn">Guardar cambios de medicina</button>
-      </div>
-
-      <div id="medicinaVentasList" style="margin-top:14px;"></div>
-      <div id="medicinaTotales" class="caja-totales"></div>
+      <div id="productCategoriesWrap"></div>
     </div>
 
-    <h3 class="admin-subheading collapsible-header" data-target="sec-ropa"><span class="arrow">▾</span> 👕 Inventario de Ropa</h3>
-    <div class="collapsible-content" id="sec-ropa">
-      <div class="caja-form-row">
-        <input type="text" id="ropaDesc" placeholder="Descripción de la prenda">
-        <select id="ropaDueno"></select>
-        <select id="ropaRopero"></select>
-        <input type="number" id="ropaPrecio" placeholder="Precio venta $">
-        <input type="text" id="ropaNotas" placeholder="Notas (opcional)">
-        <button class="pay-btn" id="addRopaBtn">Agregar</button>
+    <div id="block-ropa">
+      <h3 class="admin-subheading collapsible-header" data-target="sec-ropa"><span class="arrow">▾</span> 👕 Inventario de Ropa</h3>
+      <div class="collapsible-content" id="sec-ropa">
+        <div class="caja-form-row">
+          <input type="text" id="ropaDesc" placeholder="Descripción de la prenda">
+          <select id="ropaDueno"></select>
+          <select id="ropaRopero"></select>
+          <input type="number" id="ropaPrecio" placeholder="Precio venta $">
+          <input type="text" id="ropaNotas" placeholder="Notas (opcional)">
+          <button class="pay-btn" id="addRopaBtn">Agregar</button>
+        </div>
+        <div id="ropaTotales" class="caja-totales"></div>
+        <button class="dismiss-all-btn" id="addRoperoBtn" style="margin-bottom:10px;">+ Agregar ropero</button>
+        <div id="roperosWrap"></div>
       </div>
-      <div id="ropaTotales" class="caja-totales"></div>
-      <button class="dismiss-all-btn" id="addRoperoBtn" style="margin-bottom:10px;">+ Agregar ropero</button>
-      <div id="roperosWrap"></div>
     </div>
 
     <h3 class="admin-subheading collapsible-header" data-target="sec-gastos"><span class="arrow">▾</span> 🛠️ Gastos extraordinarios</h3>
@@ -707,7 +700,7 @@ const DEFAULT_TIPS = [
 const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
 const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
 
-let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n')};
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), hiddenSections: {}};
 let jobPayOverrides = {};
 let configStarted = false;
 let ventasEnabledForMe = true; // preferencia personal, no global
@@ -734,20 +727,56 @@ function startPublicConfigListeners(){
     siteConfig = {
       title: (v && v.title) || DEFAULT_TITLE,
       subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
-      tips: (v && v.tips) || DEFAULT_TIPS.join('\n')
+      tips: (v && v.tips) || DEFAULT_TIPS.join('\n'),
+      hiddenSections: (v && v.hiddenSections) || {}
     };
     applySiteConfigToPage();
+    applyCajaSectionVisibility();
     const cfgTitleInput = document.getElementById('cfgTitle');
     if(cfgTitleInput){
       cfgTitleInput.value = siteConfig.title;
       document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
       document.getElementById('cfgTips').value = siteConfig.tips;
+      renderCfgSectionsList();
     }
   });
 
   db.ref('jobPayOverrides').on('value', snap=>{
     jobPayOverrides = snap.val() || {};
     if(appStarted) renderJobs();
+  });
+}
+
+// Lista de secciones de Cierre de Caja que se pueden ocultar (categorías de producto + Ropa)
+function toggleableSections(){
+  return [...PRODUCT_CATEGORIES.map(c=>({id:c.id, label:`${c.emoji} ${c.name}`})), {id:'ropa', label:'👕 Ropa'}];
+}
+
+function applyCajaSectionVisibility(){
+  const hidden = siteConfig.hiddenSections || {};
+  PRODUCT_CATEGORIES.forEach(cat=>{
+    const block = document.getElementById('prod-block-'+cat.id);
+    if(block) block.style.display = hidden[cat.id] ? 'none' : '';
+  });
+  const ropaBlock = document.getElementById('block-ropa');
+  if(ropaBlock) ropaBlock.style.display = hidden['ropa'] ? 'none' : '';
+}
+
+function renderCfgSectionsList(){
+  const box = document.getElementById('cfgSectionsWrap');
+  if(!box) return;
+  const hidden = siteConfig.hiddenSections || {};
+  box.innerHTML = toggleableSections().map(t=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;margin-bottom:8px;">
+      <input type="checkbox" class="cfg-section-toggle" data-section="${t.id}" style="width:16px;height:16px;" ${hidden[t.id] ? '' : 'checked'}>
+      Mostrar sección "${t.label}"
+    </label>
+  `).join('');
+  box.querySelectorAll('.cfg-section-toggle').forEach(cb=>{
+    cb.addEventListener('change', async ()=>{
+      await db.ref('siteConfig/hiddenSections/'+cb.dataset.section).set(!cb.checked);
+      showToast(cb.checked ? 'Sección visible para todos los dueños.' : 'Sección oculta para todos los dueños.', '💾 Guardado');
+    });
   });
 }
 
@@ -778,6 +807,7 @@ function startConfigListeners(){
   if(configStarted) return;
   configStarted = true;
   renderCfgJobsList();
+  renderCfgSectionsList();
 }
 
 // ====== HISTORIAL DE VENTAS ======
@@ -1800,12 +1830,16 @@ let abastCache = {};
 let ropaCache = {};
 let cajaActualCache = {amount:0};
 let cajaHistorialCache = {};
-let medicinaCache = {};
-let medicinaVentasCache = {};
 let gastosExtraCache = {};
 
-// Ítems de medicina: ahora vive en Firebase (editable), esta es solo la semilla inicial
-// por si el nodo todavía no existe la primera vez que alguien entra.
+// ====== SISTEMA GENÉRICO DE PRODUCTOS (Medicina, Tecnología, y las que se sumen después) ======
+const PRODUCT_CATEGORIES = [
+  {id:'medicina', name:'Medicina', emoji:'💊'},
+  {id:'tecnologia', name:'Tecnología', emoji:'💻'},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺'},
+];
+
+// Semillas iniciales — solo se usan la primera vez que la categoría no tiene ítems en Firebase.
 const DEFAULT_MEDICINE_ITEMS = {
   analgesicos: {name:'Bolsa de Analgésicos', sell:620, buy:400},
   botiquin: {name:'Botiquín de primeros auxilios', sell:19900, buy:15000},
@@ -1816,7 +1850,81 @@ const DEFAULT_MEDICINE_ITEMS = {
   vendajehemostatico: {name:'Vendaje Hemostático', sell:4450, buy:4000},
   vendajecompresion: {name:'Vendaje de compresión', sell:4100, buy:2500},
 };
-let MEDICINE_ITEMS = []; // array de {key, name, sell, buy}, se llena desde Firebase
+const DEFAULT_TECH_ITEMS = {
+  bateria_litio: {name:'Batería de litio', sell:0, buy:500},
+  bongo: {name:'Bongo', sell:0, buy:3200},
+  camara: {name:'Camara', sell:0, buy:9500},
+  comlink: {name:'ComLink', sell:0, buy:17000},
+  camara_tv: {name:'Cámara de TV', sell:0, buy:30000},
+  guitarra_clasica: {name:'Guitarra clásica', sell:0, buy:3500},
+  guitarra_electrica: {name:'Guitarra eléctrica', sell:0, buy:5400},
+  guitarra_electrica_blanca: {name:'Guitarra eléctrica blanca', sell:0, buy:5000},
+  guitarra_electrica_naranja: {name:'Guitarra eléctrica naranja', sell:0, buy:4940},
+  guitarra_electrica_negra: {name:'Guitarra eléctrica negra', sell:0, buy:5200},
+  megafono: {name:'Megáfono', sell:0, buy:3780},
+  microchip: {name:'Microchip', sell:0, buy:3920},
+  microfono: {name:'Microfono', sell:0, buy:800},
+  microfono_grande: {name:'Microfono grande', sell:0, buy:10000},
+  pendrive: {name:'Pendrive', sell:0, buy:3725},
+  tablet: {name:'Tablet', sell:0, buy:2380},
+  walkie_talkie: {name:'Walkie-Talkie', sell:0, buy:6000},
+  walkie_talkie_v2: {name:'Walkie-Talkie v2', sell:0, buy:8000},
+  walkie_talkie_v3_amarillo: {name:'Walkie-Talkie v3 Amarillo', sell:0, buy:6500},
+  walkie_talkie_v3_azul: {name:'Walkie-Talkie v3 Azul', sell:0, buy:6500},
+  walkie_talkie_v3_blanco: {name:'Walkie-Talkie v3 Blanco', sell:0, buy:6500},
+  walkie_talkie_v3_naranja: {name:'Walkie-Talkie v3 Naranja', sell:0, buy:6500},
+  walkie_talkie_v3_rojo: {name:'Walkie-Talkie v3 Rojo', sell:0, buy:6500},
+  walkie_talkie_v3_verde: {name:'Walkie-Talkie v3 Verde', sell:0, buy:6500},
+};
+const DEFAULT_BEBIDAS_ITEMS = {
+  bebida_energetica: {name:'Bebida energética', sell:0, buy:110},
+  botella_agua: {name:'Botella de agua', sell:0, buy:19},
+  cerveza_afterlife: {name:'Botella de cerveza "Afterlife"', sell:0, buy:130},
+  cerveza_barracho: {name:'Botella de cerveza "Barracho"', sell:0, buy:125},
+  cerveza_blarneys: {name:'Botella de cerveza "Blarneys"', sell:0, buy:230},
+  cerveza_dusche: {name:'Botella de cerveza "Dusche"', sell:0, buy:265},
+  cerveza_jakeys: {name:'Botella de cerveza "Jakey\'s"', sell:0, buy:260},
+  cerveza_logger: {name:'Botella de cerveza "Logger"', sell:0, buy:195},
+  cerveza_patriot: {name:'Botella de cerveza "Patriot"', sell:0, buy:280},
+  cerveza_pisswasser: {name:'Botella de cerveza "Pißwasser"', sell:0, buy:110},
+  cerveza_pride: {name:'Botella de cerveza "Pride"', sell:0, buy:200},
+  cerveza_stronzo: {name:'Botella de cerveza "Stronzo"', sell:0, buy:275},
+  champagne: {name:'Botella de champagne', sell:0, buy:190},
+  ron: {name:'Botella de ron', sell:0, buy:150},
+  tequila: {name:'Botella de tequila', sell:0, buy:350},
+  vermut: {name:'Botella de vermut', sell:0, buy:193},
+  vino_blanco: {name:'Botella de vino blanco', sell:0, buy:180},
+  vino_tinto: {name:'Botella de vino tinto', sell:0, buy:170},
+  vodka: {name:'Botella de vodka', sell:0, buy:145},
+  whisky: {name:'Botella de whisky', sell:0, buy:159},
+  lata_ecola: {name:'Lata de Ecola', sell:0, buy:44},
+  lata_sprunk: {name:'Lata de Sprunk', sell:0, buy:38},
+};
+
+function categoryDefaults(catId){
+  if(catId==='medicina') return DEFAULT_MEDICINE_ITEMS;
+  if(catId==='tecnologia') return DEFAULT_TECH_ITEMS;
+  if(catId==='bebidas') return DEFAULT_BEBIDAS_ITEMS;
+  return {};
+}
+
+// Medicina sigue viviendo en sus rutas viejas (para no tocar los datos que ya tenías).
+// Las categorías nuevas usan rutas genéricas bajo caja/products/{catId}/...
+function categoryPaths(catId){
+  if(catId === 'medicina'){
+    return { items:'caja/medicinaItems', stock:'caja/medicina', ventas:'caja/medicinaVentas' };
+  }
+  return { items:'caja/products/'+catId+'/items', stock:'caja/products/'+catId+'/stock', ventas:'caja/products/'+catId+'/ventas' };
+}
+
+function catName(catId){
+  const c = PRODUCT_CATEGORIES.find(c=>c.id===catId);
+  return c ? c.name : catId;
+}
+
+let PRODUCT_ITEMS = {};      // {catId: [{key,name,sell,buy}]}
+let productStockCache = {};  // {catId: {itemKey: {stock, ventaAcumulada, compraAcumulada}}}
+let productVentasCache = {}; // {catId: {pushId: {...}}}
 
 function fmtMoneyCaja(n){
   return '$' + Math.round(n||0).toLocaleString('es-AR');
@@ -1853,21 +1961,34 @@ document.getElementById('addOwnerBtn').addEventListener('click', async ()=>{
   showToast('Se agregó un dueño nuevo, cambiale el nombre y guardá.', '💾 Agregado');
 });
 
+function fillAbastCategorySelect(){
+  const sel = document.getElementById('abastCategoria');
+  if(!sel) return;
+  const prevVal = sel.value;
+  sel.innerHTML = PRODUCT_CATEGORIES.map(c=>`<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+  sel.value = PRODUCT_CATEGORIES.some(c=>c.id===prevVal) ? prevVal : PRODUCT_CATEGORIES[0].id;
+}
+
 function fillAbastItemSelect(){
-  document.getElementById('abastItemSelect').innerHTML = MEDICINE_ITEMS.map(i=>
+  const catSel = document.getElementById('abastCategoria');
+  const catId = catSel && catSel.value ? catSel.value : PRODUCT_CATEGORIES[0].id;
+  const items = PRODUCT_ITEMS[catId] || [];
+  document.getElementById('abastItemSelect').innerHTML = items.map(i=>
     `<option value="${i.key}">${i.name} (compra ${fmtMoneyCaja(i.buy)})</option>`
   ).join('');
 }
 
 function updateAbastInversionPreview(){
   const preview = document.getElementById('abastInversionPreview');
+  const catId = document.getElementById('abastCategoria').value;
   const itemKey = document.getElementById('abastItemSelect').value;
-  const item = MEDICINE_ITEMS.find(i=>i.key===itemKey);
+  const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===itemKey);
   const qty = Number(document.getElementById('abastCantidad').value) || 0;
   const inversion = item ? item.buy * qty : 0;
   preview.innerHTML = `<span>Inversión calculada: <b>${fmtMoneyCaja(inversion)}</b></span>`;
 }
 
+document.getElementById('abastCategoria').addEventListener('change', ()=>{ fillAbastItemSelect(); updateAbastInversionPreview(); });
 document.getElementById('abastItemSelect').addEventListener('change', updateAbastInversionPreview);
 document.getElementById('abastCantidad').addEventListener('input', updateAbastInversionPreview);
 
@@ -1875,20 +1996,38 @@ function startCajaListeners(){
   if(cajaStarted) return;
   cajaStarted = true;
 
-  // Migración: si todavía no existe la lista de ítems en Firebase, la sembramos una vez
-  db.ref('caja/medicinaItems').once('value').then(snap=>{
-    if(!snap.exists()){
-      db.ref('caja/medicinaItems').set(DEFAULT_MEDICINE_ITEMS);
-    }
-  });
+  renderProductCategorySections();
+  fillAbastCategorySelect();
 
-  db.ref('caja/medicinaItems').on('value', snap=>{
-    const raw = snap.val() || {};
-    MEDICINE_ITEMS = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell, buy:raw[key].buy}));
-    fillAbastItemSelect();
-    updateAbastInversionPreview();
-    renderMedicinaTable();
-    renderCajaResumen();
+  PRODUCT_CATEGORIES.forEach(cat=>{
+    const paths = categoryPaths(cat.id);
+
+    // Migración: si todavía no existe la lista de ítems de esta categoría, la sembramos una vez
+    db.ref(paths.items).once('value').then(snap=>{
+      if(!snap.exists()){
+        db.ref(paths.items).set(categoryDefaults(cat.id));
+      }
+    });
+
+    db.ref(paths.items).on('value', snap=>{
+      const raw = snap.val() || {};
+      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0}));
+      fillAbastItemSelect();
+      updateAbastInversionPreview();
+      renderProductTable(cat.id);
+      renderCajaResumen();
+    });
+
+    db.ref(paths.stock).on('value', snap=>{
+      productStockCache[cat.id] = snap.val() || {};
+      renderProductTable(cat.id);
+      renderCajaResumen();
+    });
+
+    db.ref(paths.ventas).on('value', snap=>{
+      productVentasCache[cat.id] = snap.val() || {};
+      renderProductVentasList(cat.id);
+    });
   });
 
   // Migración: si existe el esquema viejo (2 dueños fijos) y todavía no hay 'owners', migramos una vez
@@ -1946,17 +2085,6 @@ function startCajaListeners(){
     renderCajaResumen();
   });
 
-  db.ref('caja/medicina').on('value', snap=>{
-    medicinaCache = snap.val() || {};
-    renderMedicinaTable();
-    renderCajaResumen();
-  });
-
-  db.ref('caja/medicinaVentas').on('value', snap=>{
-    medicinaVentasCache = snap.val() || {};
-    renderMedicinaVentasList();
-  });
-
   db.ref('caja/gastosExtra').on('value', snap=>{
     gastosExtraCache = snap.val() || {};
     renderGastosExtraTable();
@@ -1982,10 +2110,11 @@ document.getElementById('saveOwnerNamesBtn').addEventListener('click', async ()=
 });
 
 document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
+  const catId = document.getElementById('abastCategoria').value;
   const owner = document.getElementById('abastDueno').value;
   const notas = document.getElementById('abastNotas').value.trim();
   const itemKey = document.getElementById('abastItemSelect').value;
-  const item = MEDICINE_ITEMS.find(i=>i.key===itemKey);
+  const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===itemKey);
   const qty = Number(document.getElementById('abastCantidad').value);
   if(!item){ alert('Elegí un ítem.'); return; }
   if(!qty || qty<=0){ alert('Poné una cantidad válida.'); return; }
@@ -1993,15 +2122,16 @@ document.getElementById('addAbastBtn').addEventListener('click', async ()=>{
 
   await db.ref('caja/abastecimiento').push({
     date: new Date().toISOString().slice(0,10),
-    categoria: 'Medicamentos', owner, monto,
+    categoria: catName(catId), catId, owner, monto,
     itemKey, itemName: item.name, qty,
     notas,
     settled: false,
     timestamp: Date.now()
   });
 
-  // Suma automáticamente al stock del ítem
-  await db.ref('caja/medicina/'+itemKey).transaction(st=>{
+  // Suma automáticamente al stock del ítem, en la ruta de su categoría
+  const paths = categoryPaths(catId);
+  await db.ref(paths.stock+'/'+itemKey).transaction(st=>{
     st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
     st.stock = (st.stock||0) + qty;
     st.compraAcumulada = (st.compraAcumulada||0) + monto;
@@ -2038,8 +2168,9 @@ function renderAbastTable(){
       if(!confirm('¿Borrar este registro?')) return;
       const entry = abastCache[btn.dataset.key];
       if(entry && entry.itemKey){
-        // Si era una compra de medicina, revierte el stock que había sumado
-        await db.ref('caja/medicina/'+entry.itemKey).transaction(st=>{
+        // Revierte el stock que había sumado, en la ruta de su categoría (o Medicina si es un registro viejo sin catId)
+        const paths = categoryPaths(entry.catId || 'medicina');
+        await db.ref(paths.stock+'/'+entry.itemKey).transaction(st=>{
           if(!st) return st;
           st.stock = Math.max(0, (st.stock||0) - entry.qty);
           st.compraAcumulada = Math.max(0, (st.compraAcumulada||0) - entry.monto);
@@ -2192,88 +2323,145 @@ document.getElementById('saveCajaBtn').addEventListener('click', async ()=>{
   showToast(`Caja actualizada a ${fmtMoneyCaja(val)}.`, '💾 Guardado');
 });
 
-function renderMedicinaTable(){
-  const box = document.getElementById('medicinaTableWrap');
-  if(MEDICINE_ITEMS.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; return; }
-  const rows = MEDICINE_ITEMS.map(item=>{
-    const st = medicinaCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
-    return `
-      <tr>
-        <td>${item.name}</td>
-        <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
-        <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
-        <td style="white-space:nowrap;">
-          <button class="small-del-btn" data-action="stockdown" data-key="${item.key}">−</button>
-          <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-key="${item.key}" value="${st.stock||0}">
-          <button class="small-del-btn" data-action="stockup" data-key="${item.key}">+</button>
-        </td>
-        <td><button class="small-del-btn" data-action="delitem" data-key="${item.key}">Quitar ítem</button></td>
-      </tr>
-    `;
-  }).join('');
-  box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th><th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+function renderProductCategorySections(){
+  const wrap = document.getElementById('productCategoriesWrap');
+  if(!wrap) return;
+  wrap.innerHTML = PRODUCT_CATEGORIES.map(cat=>`
+    <div id="prod-block-${cat.id}">
+      <h3 class="admin-subheading collapsible-header" data-target="prod-sec-${cat.id}"><span class="arrow">▾</span> ${cat.emoji} ${cat.name} — stock y ventas</h3>
+      <div class="collapsible-content" id="prod-sec-${cat.id}">
+        <p class="sub" style="margin:6px 0;">Editá precios directo en la tabla y usá el − / + del stock. Si el stock baja, cuenta como venta; si sube, es corrección manual.</p>
+        <div id="prod-table-${cat.id}"></div>
 
-  box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
+        <button class="dismiss-all-btn" data-action="toggle-newitem" data-cat="${cat.id}" style="margin:8px 0;">+ Agregar ítem nuevo</button>
+        <div class="caja-form-row" id="prod-newitem-row-${cat.id}" style="display:none;">
+          <input type="text" class="prod-newitem-name" data-cat="${cat.id}" placeholder="Nombre del ítem">
+          <input type="number" class="prod-newitem-sell" data-cat="${cat.id}" placeholder="Precio venta $ (opcional)">
+          <input type="number" class="prod-newitem-buy" data-cat="${cat.id}" placeholder="Precio compra $">
+          <button class="pay-btn" data-action="add-item" data-cat="${cat.id}">Crear ítem</button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <button class="pay-btn" data-action="save" data-cat="${cat.id}">Guardar cambios</button>
+        </div>
+
+        <div id="prod-ventaslist-${cat.id}" style="margin-top:12px;"></div>
+        <div id="prod-totales-${cat.id}" class="caja-totales"></div>
+      </div>
+    </div>
+  `).join('');
+  wireAllCollapsibles();
+  applyCajaSectionVisibility();
+
+  wrap.querySelectorAll('button[data-action="toggle-newitem"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
-      input.value = Math.max(0, (Number(input.value)||0) - 1);
+      const row = document.getElementById('prod-newitem-row-'+btn.dataset.cat);
+      row.style.display = row.style.display==='none' ? 'flex' : 'none';
     });
   });
-  box.querySelectorAll('button[data-action="stockup"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
-      input.value = (Number(input.value)||0) + 1;
-    });
-  });
-  box.querySelectorAll('button[data-action="delitem"]').forEach(btn=>{
+
+  wrap.querySelectorAll('button[data-action="add-item"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const item = MEDICINE_ITEMS.find(i=>i.key===btn.dataset.key);
-      if(!confirm(`¿Quitar "${item.name}" de la lista? Se borra también su stock actual.`)) return;
-      await db.ref().update({
-        ['caja/medicinaItems/'+btn.dataset.key]: null,
-        ['caja/medicina/'+btn.dataset.key]: null
-      });
+      const catId = btn.dataset.cat;
+      const nameInput = wrap.querySelector(`.prod-newitem-name[data-cat="${catId}"]`);
+      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-cat="${catId}"]`);
+      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-cat="${catId}"]`);
+      const name = nameInput.value.trim();
+      const sell = Number(sellInput.value) || 0;
+      const buy = Number(buyInput.value);
+      if(!name){ alert('Poné un nombre.'); return; }
+      if(!buy || buy<=0){ alert('Poné un precio de compra válido.'); return; }
+      const paths = categoryPaths(catId);
+      const newRef = db.ref(paths.items).push();
+      await newRef.set({name, sell, buy});
+      nameInput.value = ''; sellInput.value = ''; buyInput.value = '';
+      document.getElementById('prod-newitem-row-'+catId).style.display = 'none';
+      showToast(`${name} — compra ${fmtMoneyCaja(buy)}${sell?` / venta ${fmtMoneyCaja(sell)}`:''}`, '💾 Ítem creado');
     });
   });
 
-  const ventaTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).ventaAcumulada||0), 0);
-  const compraTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).compraAcumulada||0), 0);
-  document.getElementById('medicinaTotales').innerHTML = `
-    <span>Vendido esta ronda: <b>${fmtMoneyCaja(ventaTotal)}</b></span>
-    <span>Gastado en reposición esta ronda: <b>${fmtMoneyCaja(compraTotal)}</b></span>
-  `;
+  wrap.querySelectorAll('button[data-action="save"]').forEach(btn=>{
+    btn.addEventListener('click', ()=> saveProductCategoryChanges(btn.dataset.cat));
+  });
 }
 
-document.getElementById('toggleNewItemFormBtn').addEventListener('click', ()=>{
-  const row = document.getElementById('newItemFormRow');
-  row.style.display = row.style.display==='none' ? 'flex' : 'none';
-});
+function renderProductTable(catId){
+  const box = document.getElementById('prod-table-'+catId);
+  if(!box) return;
+  const items = PRODUCT_ITEMS[catId] || [];
+  const stockCache = productStockCache[catId] || {};
+  if(items.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
+  else{
+    const rows = items.map(item=>{
+      const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+      return `
+        <tr>
+          <td>${item.name}</td>
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
+          <td style="white-space:nowrap;">
+            <button class="small-del-btn" data-action="stockdown" data-key="${item.key}">−</button>
+            <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-key="${item.key}" value="${st.stock||0}">
+            <button class="small-del-btn" data-action="stockup" data-key="${item.key}">+</button>
+          </td>
+          <td><button class="small-del-btn" data-action="delitem" data-key="${item.key}">Quitar ítem</button></td>
+        </tr>
+      `;
+    }).join('');
+    box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th><th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 
-document.getElementById('addMedicineItemBtn').addEventListener('click', async ()=>{
-  const name = document.getElementById('newItemName').value.trim();
-  const sell = Number(document.getElementById('newItemSell').value);
-  const buy = Number(document.getElementById('newItemBuy').value);
-  if(!name){ alert('Poné un nombre.'); return; }
-  if(!sell || sell<=0 || !buy || buy<=0){ alert('Poné precios de venta y compra válidos.'); return; }
-  const newRef = db.ref('caja/medicinaItems').push();
-  await newRef.set({name, sell, buy});
-  document.getElementById('newItemName').value = '';
-  document.getElementById('newItemSell').value = '';
-  document.getElementById('newItemBuy').value = '';
-  document.getElementById('newItemFormRow').style.display = 'none';
-  showToast(`${name} — venta ${fmtMoneyCaja(sell)} / compra ${fmtMoneyCaja(buy)}`, '💾 Ítem creado');
-});
+    box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+        input.value = Math.max(0, (Number(input.value)||0) - 1);
+      });
+    });
+    box.querySelectorAll('button[data-action="stockup"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+        input.value = (Number(input.value)||0) + 1;
+      });
+    });
+    box.querySelectorAll('button[data-action="delitem"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===btn.dataset.key);
+        if(!confirm(`¿Quitar "${item.name}" de la lista? Se borra también su stock actual.`)) return;
+        const paths = categoryPaths(catId);
+        await db.ref().update({
+          [paths.items+'/'+btn.dataset.key]: null,
+          [paths.stock+'/'+btn.dataset.key]: null
+        });
+        showToast(`${item.name} eliminado.`, '🗑 Ítem borrado');
+      });
+    });
+  }
 
-document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
+  const ventaTotal = items.reduce((s,i)=> s+((stockCache[i.key]||{}).ventaAcumulada||0), 0);
+  const compraTotal = items.reduce((s,i)=> s+((stockCache[i.key]||{}).compraAcumulada||0), 0);
+  const totalesBox = document.getElementById('prod-totales-'+catId);
+  if(totalesBox){
+    totalesBox.innerHTML = `
+      <span>Vendido esta ronda: <b>${fmtMoneyCaja(ventaTotal)}</b></span>
+      <span>Gastado en reposición esta ronda: <b>${fmtMoneyCaja(compraTotal)}</b></span>
+    `;
+  }
+}
+
+async function saveProductCategoryChanges(catId){
+  const items = PRODUCT_ITEMS[catId] || [];
+  const stockCache = productStockCache[catId] || {};
+  const paths = categoryPaths(catId);
   const updates = {};
   let changed = false;
-  MEDICINE_ITEMS.forEach(item=>{
-    const st = medicinaCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
-    const sellInput = document.querySelector(`.med-qty-input[data-key="${item.key}"][data-field="sell"]`);
-    const buyInput = document.querySelector(`.med-qty-input[data-key="${item.key}"][data-field="buy"]`);
-    const stockInput = document.querySelector(`.med-stock-input[data-key="${item.key}"]`);
 
-    const newSell = Number(sellInput.value) || item.sell;
+  items.forEach(item=>{
+    const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+    const sellInput = document.querySelector(`#prod-table-${catId} .med-qty-input[data-key="${item.key}"][data-field="sell"]`);
+    const buyInput = document.querySelector(`#prod-table-${catId} .med-qty-input[data-key="${item.key}"][data-field="buy"]`);
+    const stockInput = document.querySelector(`#prod-table-${catId} .med-stock-input[data-key="${item.key}"]`);
+    if(!sellInput || !buyInput || !stockInput) return;
+
+    const newSell = Number(sellInput.value) || 0;
     const newBuy = Number(buyInput.value) || item.buy;
     const newStock = Number(stockInput.value) || 0;
     const oldStock = st.stock || 0;
@@ -2286,8 +2474,8 @@ document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
       const montoVenta = qtyVendida * item.sell;
       ventaAcumulada += montoVenta;
       changed = true;
-      const ventaRef = db.ref('caja/medicinaVentas').push();
-      updates['caja/medicinaVentas/'+ventaRef.key] = {
+      const ventaRef = db.ref(paths.ventas).push();
+      updates[paths.ventas+'/'+ventaRef.key] = {
         itemKey: item.key, itemName: item.name, qty: qtyVendida, monto: montoVenta, timestamp: Date.now()
       };
     }
@@ -2295,29 +2483,32 @@ document.getElementById('saveMedicinaBtn').addEventListener('click', async ()=>{
 
     if(newSell !== item.sell || newBuy !== item.buy){
       changed = true;
-      updates['caja/medicinaItems/'+item.key+'/sell'] = newSell;
-      updates['caja/medicinaItems/'+item.key+'/buy'] = newBuy;
+      updates[paths.items+'/'+item.key+'/sell'] = newSell;
+      updates[paths.items+'/'+item.key+'/buy'] = newBuy;
     }
     if(diff !== 0){
       changed = true;
-      updates['caja/medicina/'+item.key+'/stock'] = newStock;
-      updates['caja/medicina/'+item.key+'/ventaAcumulada'] = ventaAcumulada;
+      updates[paths.stock+'/'+item.key+'/stock'] = newStock;
+      updates[paths.stock+'/'+item.key+'/ventaAcumulada'] = ventaAcumulada;
     }
   });
+
   if(!changed){ showToast('No había cambios para guardar.', 'ℹ️ Sin cambios'); return; }
   await db.ref().update(updates);
-  showToast('Stock y precios de medicina actualizados.', '💾 Guardado');
-});
+  showToast(`Stock y precios de ${catName(catId)} actualizados.`, '💾 Guardado');
+}
 
-function renderMedicinaVentasList(){
-  const box = document.getElementById('medicinaVentasList');
-  const entries = Object.entries(medicinaVentasCache);
+function renderProductVentasList(catId){
+  const box = document.getElementById('prod-ventaslist-'+catId);
+  if(!box) return;
+  const cache = productVentasCache[catId] || {};
+  const entries = Object.entries(cache);
   if(entries.length===0){ box.innerHTML = ''; return; }
   entries.sort((a,b)=> b[1].timestamp - a[1].timestamp);
   box.innerHTML = `<div class="payments-list">${entries.map(([key,v])=>`
     <div class="payment-row">
       <span>${v.itemName} — ${v.qty} un. — ${fmtMoneyCaja(v.monto)}</span>
-      <button class="small-del-btn" data-key="${key}" data-itemkey="${v.itemKey}" data-qty="${v.qty}" data-monto="${v.monto}">Borrar</button>
+      <button class="small-del-btn" data-key="${key}" data-itemkey="${v.itemKey}" data-monto="${v.monto}">Borrar</button>
     </div>
   `).join('')}</div>`;
 
@@ -2325,12 +2516,13 @@ function renderMedicinaVentasList(){
     btn.addEventListener('click', async ()=>{
       if(!confirm('¿Borrar este registro de venta? El stock no se toca, solo se descuenta la plata y se borra el registro.')) return;
       const {key, itemkey, monto} = btn.dataset;
-      await db.ref('caja/medicina/'+itemkey).transaction(st=>{
+      const paths = categoryPaths(catId);
+      await db.ref(paths.stock+'/'+itemkey).transaction(st=>{
         st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
         st.ventaAcumulada = Math.max(0, (st.ventaAcumulada||0) - Number(monto));
         return st;
       });
-      await db.ref('caja/medicinaVentas/'+key).remove();
+      await db.ref(paths.ventas+'/'+key).remove();
     });
   });
 }
@@ -2389,12 +2581,16 @@ function computeCajaReparto(){
   const gastoJustPart = totalGastos/n;
 
   const ropaEntries = Object.values(ropaCache).filter(v=>v.status!=='Cobrado');
-  const medicinaVentaTotal = MEDICINE_ITEMS.reduce((s,i)=> s+((medicinaCache[i.key]||{}).ventaAcumulada||0), 0);
+  const productVentaTotal = PRODUCT_CATEGORIES.reduce((sum, cat)=>{
+    const items = PRODUCT_ITEMS[cat.id] || [];
+    const stockCache = productStockCache[cat.id] || {};
+    return sum + items.reduce((s,i)=> s + ((stockCache[i.key]||{}).ventaAcumulada||0), 0);
+  }, 0);
   const cajaActual = cajaActualCache.amount || 0;
 
   const vendidaTotalTodos = ropaEntries.filter(v=>v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
   const cajaRestante = Math.max(0, cajaActual - vendidaTotalTodos);
-  const pasivoEstimado = cajaRestante - medicinaVentaTotal;
+  const pasivoEstimado = cajaRestante - productVentaTotal;
   const gananciaPorDueno = cajaRestante / n;
 
   const perOwner = owners.map(o=>{
@@ -2407,7 +2603,7 @@ function computeCajaReparto(){
     return {id:o.id, name:o.name, vendida, puestoAbast, abastAjuste, puestoGasto, gastoAjuste, retiro};
   });
 
-  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, medicinaVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno};
+  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, productVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno};
 }
 
 function fmtSigned(n){
@@ -2422,9 +2618,9 @@ function renderCajaResumen(){
   if(r.owners.length===0){ box.innerHTML = '<div class="admin-empty">Cargá al menos un dueño arriba.</div>'; return; }
   let html = `
     <div class="r-row"><span>Caja restante después de ropa</span><span>${fmtMoneyCaja(r.cajaRestante)}</span></div>
-    <div class="r-row"><span>— Explicado por venta de medicina</span><span>${fmtMoneyCaja(r.medicinaVentaTotal)}</span></div>
+    <div class="r-row"><span>— Explicado por venta de productos</span><span>${fmtMoneyCaja(r.productVentaTotal)}</span></div>
     <div class="r-row"><span>— Ingreso pasivo estimado (resto sin explicar)</span><span>${fmtMoneyCaja(r.pasivoEstimado)}</span></div>
-    <div class="r-row"><span>Ganancia por dueño (medicina + pasivo, repartido entre ${r.n})</span><span>${fmtMoneyCaja(r.gananciaPorDueno)}</span></div>
+    <div class="r-row"><span>Ganancia por dueño (productos + pasivo, repartido entre ${r.n})</span><span>${fmtMoneyCaja(r.gananciaPorDueno)}</span></div>
   `;
   r.owners.forEach(o=>{
     html += `<div class="r-row"><span>Ropa vendida a pagar a ${o.name}</span><span>${fmtMoneyCaja(o.vendida)}</span></div>`;
@@ -2468,12 +2664,17 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   Object.entries(gastosExtraCache).forEach(([key,v])=>{
     if(!v.settled) updates['caja/gastosExtra/'+key+'/settled'] = true;
   });
-  // Reiniciar lo vendido/comprado de medicina esta ronda (el stock físico no se toca)
-  MEDICINE_ITEMS.forEach(item=>{
-    const st = medicinaCache[item.key];
-    if(st) updates['caja/medicina/'+item.key] = {stock: st.stock||0, ventaAcumulada: 0, compraAcumulada: 0};
+  // Reiniciar lo vendido/comprado de cada categoría de productos esta ronda (el stock físico no se toca)
+  PRODUCT_CATEGORIES.forEach(cat=>{
+    const items = PRODUCT_ITEMS[cat.id] || [];
+    const stockCache = productStockCache[cat.id] || {};
+    const paths = categoryPaths(cat.id);
+    items.forEach(item=>{
+      const st = stockCache[item.key];
+      if(st) updates[paths.stock+'/'+item.key] = {stock: st.stock||0, ventaAcumulada: 0, compraAcumulada: 0};
+    });
+    updates[paths.ventas] = null;
   });
-  updates['caja/medicinaVentas'] = null;
   updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
   await db.ref().update(updates);
   showToast('Reparto registrado y caja reiniciada.', '💾 Listo');
