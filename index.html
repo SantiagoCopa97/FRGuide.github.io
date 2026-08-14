@@ -364,6 +364,7 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <button class="bell-btn nav-btn" id="mallToggleBtn" style="display:none;">🏠 Estado del Mall</button>
       <button class="bell-btn nav-btn" id="adminToggleBtn" style="display:none;">⚙️ Panel de Admin</button>
       <button class="bell-btn nav-btn" id="cajaToggleBtn" style="display:none;">💰 Cierre de Caja</button>
+      <button class="bell-btn nav-btn" id="ventasToggleBtn" style="display:none;">🛒 Historial de ventas</button>
       <button class="bell-btn" id="logoutBtn">Cerrar sesión</button>
     </div>
 
@@ -425,6 +426,32 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
         <button class="pay-btn" id="saveCfgTipsBtn">Guardar consejos</button>
       </div>
     </div>
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-secciones"><span class="arrow">▾</span> Secciones opcionales</h3>
+    <div class="collapsible-content" id="cfg-sec-secciones">
+      <p class="sub" style="margin-bottom:10px;">Los datos se guardan siempre, esto solo controla si el botón aparece en la barra para los dueños.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;">
+        <input type="checkbox" id="cfgVentasEnabled" style="width:16px;height:16px;">
+        Mostrar "🛒 Historial de ventas" en la barra de navegación
+      </label>
+    </div>
+  </div>
+
+  <div id="ventasView" style="display:none;">
+    <div class="admin-header">
+      <h2>🛒 Historial de ventas</h2>
+    </div>
+    <p class="sub" style="margin-bottom:16px;">Por ahora solo registra ventas de ropa. Se guarda siempre, esté esta sección visible o no.</p>
+    <div class="caja-form-row">
+      <input type="text" id="ventasSearch" placeholder="Buscar prenda...">
+      <select id="ventasSort">
+        <option value="recent">Más reciente primero</option>
+        <option value="alphaAsc">Nombre (A-Z)</option>
+        <option value="alphaDesc">Nombre (Z-A)</option>
+        <option value="priceDesc">Precio (mayor a menor)</option>
+        <option value="priceAsc">Precio (menor a mayor)</option>
+      </select>
+    </div>
+    <div id="ventasListWrap"></div>
   </div>
 
   <div id="adminView" style="display:none;">
@@ -680,7 +707,7 @@ const DEFAULT_TIPS = [
 const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
 const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
 
-let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n')};
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), salesHistoryEnabled: true};
 let jobPayOverrides = {};
 let configStarted = false;
 
@@ -706,14 +733,17 @@ function startPublicConfigListeners(){
     siteConfig = {
       title: (v && v.title) || DEFAULT_TITLE,
       subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
-      tips: (v && v.tips) || DEFAULT_TIPS.join('\n')
+      tips: (v && v.tips) || DEFAULT_TIPS.join('\n'),
+      salesHistoryEnabled: (v && typeof v.salesHistoryEnabled === 'boolean') ? v.salesHistoryEnabled : true
     };
     applySiteConfigToPage();
+    updateVentasNavVisibility();
     const cfgTitleInput = document.getElementById('cfgTitle');
     if(cfgTitleInput){
       cfgTitleInput.value = siteConfig.title;
       document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
       document.getElementById('cfgTips').value = siteConfig.tips;
+      document.getElementById('cfgVentasEnabled').checked = siteConfig.salesHistoryEnabled;
     }
   });
 
@@ -723,10 +753,83 @@ function startPublicConfigListeners(){
   });
 }
 
+function updateVentasNavVisibility(){
+  const btn = document.getElementById('ventasToggleBtn');
+  const show = !!(currentUser && currentUser.role==='owner' && siteConfig.salesHistoryEnabled);
+  btn.style.display = show ? 'inline-flex' : 'none';
+  if(!show && btn.classList.contains('nav-active')) setSection('mall');
+}
+
+document.getElementById('cfgVentasEnabled').addEventListener('change', async (e)=>{
+  await db.ref('siteConfig').update({salesHistoryEnabled: e.target.checked});
+  showToast(e.target.checked ? 'Ahora los dueños ven el botón en la barra.' : 'Se ocultó el botón para todos los dueños.', '💾 Guardado');
+});
+
 function startConfigListeners(){
   if(configStarted) return;
   configStarted = true;
   renderCfgJobsList();
+}
+
+// ====== HISTORIAL DE VENTAS ======
+let ventasStarted = false;
+let ventasRopaCache = {};
+
+function startVentasListeners(){
+  if(ventasStarted) return;
+  ventasStarted = true;
+
+  db.ref('caja/owners').on('value', snap=>{
+    ownersCache = snap.val() || {};
+    renderVentasList();
+  });
+
+  db.ref('caja/ropa').on('value', snap=>{
+    ventasRopaCache = snap.val() || {};
+    renderVentasList();
+  });
+
+  document.getElementById('ventasSearch').addEventListener('input', renderVentasList);
+  document.getElementById('ventasSort').addEventListener('change', renderVentasList);
+}
+
+function renderVentasList(){
+  const box = document.getElementById('ventasListWrap');
+  if(!box) return;
+  const query = (document.getElementById('ventasSearch').value || '').toLowerCase().trim();
+  const sortMode = document.getElementById('ventasSort').value;
+
+  let items = Object.values(ventasRopaCache).filter(v => v.status==='Vendido' || v.status==='Cobrado');
+  if(query) items = items.filter(v => (v.desc||'').toLowerCase().includes(query));
+
+  items = items.slice();
+  if(sortMode==='alphaAsc') items.sort((a,b)=> a.desc.localeCompare(b.desc));
+  else if(sortMode==='alphaDesc') items.sort((a,b)=> b.desc.localeCompare(a.desc));
+  else if(sortMode==='priceDesc') items.sort((a,b)=> b.precio - a.precio);
+  else if(sortMode==='priceAsc') items.sort((a,b)=> a.precio - b.precio);
+  else items.sort((a,b)=> (b.timestamp||0) - (a.timestamp||0));
+
+  if(items.length===0){
+    box.innerHTML = `<div class="admin-empty">${query ? 'Ninguna venta coincide con la búsqueda.' : 'Todavía no hay ventas registradas.'}</div>`;
+    return;
+  }
+
+  const rows = items.map(v=>`
+    <tr>
+      <td>${v.desc}</td>
+      <td>${ownerName(v.owner)}</td>
+      <td>${fmtMoneyCaja(v.precio)}</td>
+      <td>${v.status}</td>
+      <td>${v.date}</td>
+    </tr>
+  `).join('');
+  box.innerHTML = `
+    <table class="admin-table">
+      <thead><tr><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Fecha</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="sub" style="margin-top:10px;">${items.length} venta${items.length===1?'':'s'} encontrada${items.length===1?'':'s'}.</p>
+  `;
 }
 
 function renderCfgJobsList(){
@@ -1306,6 +1409,7 @@ auth.onAuthStateChanged(async (user)=>{
     adminToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
     cajaToggleBtn.style.display = currentUser.role === 'owner' ? 'inline-flex' : 'none';
     configToggleBtn.style.display = currentUser.role === 'owner' ? 'flex' : 'none';
+    updateVentasNavVisibility();
     userBar.style.display = 'flex';
     overlay.style.display = 'none';
     startAppOnce();
@@ -1620,27 +1724,31 @@ function renderPaymentsHistory(data){
   });
 }
 
-function setSection(section){ // 'mall' | 'admin' | 'caja' | 'config'
+function setSection(section){ // 'mall' | 'admin' | 'caja' | 'config' | 'ventas'
   document.getElementById('mainView').style.display = section==='mall' ? '' : 'none';
   document.getElementById('adminView').style.display = section==='admin' ? 'block' : 'none';
   document.getElementById('cajaView').style.display = section==='caja' ? 'block' : 'none';
   document.getElementById('configView').style.display = section==='config' ? 'block' : 'none';
+  document.getElementById('ventasView').style.display = section==='ventas' ? 'block' : 'none';
   document.getElementById('heroExpanded').style.display = section==='mall' ? '' : 'none';
 
   document.getElementById('mallToggleBtn').classList.toggle('nav-active', section==='mall');
   document.getElementById('adminToggleBtn').classList.toggle('nav-active', section==='admin');
   document.getElementById('cajaToggleBtn').classList.toggle('nav-active', section==='caja');
   document.getElementById('configToggleBtn').classList.toggle('nav-active', section==='config');
+  document.getElementById('ventasToggleBtn').classList.toggle('nav-active', section==='ventas');
 
   if(section==='admin') startAdminListeners();
   if(section==='caja') startCajaListeners();
   if(section==='config') startConfigListeners();
+  if(section==='ventas') startVentasListeners();
 }
 
 document.getElementById('mallToggleBtn').addEventListener('click', ()=> setSection('mall'));
 document.getElementById('adminToggleBtn').addEventListener('click', ()=> setSection('admin'));
 document.getElementById('cajaToggleBtn').addEventListener('click', ()=> setSection('caja'));
 document.getElementById('configToggleBtn').addEventListener('click', ()=> setSection('config'));
+document.getElementById('ventasToggleBtn').addEventListener('click', ()=> setSection('ventas'));
 
 // ====== CIERRE DE CAJA ======
 
