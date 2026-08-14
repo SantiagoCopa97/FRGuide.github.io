@@ -426,12 +426,12 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
         <button class="pay-btn" id="saveCfgTipsBtn">Guardar consejos</button>
       </div>
     </div>
-    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-secciones"><span class="arrow">▾</span> Secciones opcionales</h3>
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-secciones"><span class="arrow">▾</span> Secciones opcionales (preferencia personal)</h3>
     <div class="collapsible-content" id="cfg-sec-secciones">
-      <p class="sub" style="margin-bottom:10px;">Los datos se guardan siempre, esto solo controla si el botón aparece en la barra para los dueños.</p>
+      <p class="sub" style="margin-bottom:10px;">Los datos se guardan siempre. Esto solo controla si el botón aparece en TU barra de navegación — cada dueño lo configura para sí mismo, no afecta a los demás.</p>
       <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;">
         <input type="checkbox" id="cfgVentasEnabled" style="width:16px;height:16px;">
-        Mostrar "🛒 Historial de ventas" en la barra de navegación
+        Mostrarme "🛒 Historial de ventas" en mi barra de navegación
       </label>
     </div>
   </div>
@@ -707,9 +707,10 @@ const DEFAULT_TIPS = [
 const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
 const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
 
-let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), salesHistoryEnabled: true};
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n')};
 let jobPayOverrides = {};
 let configStarted = false;
+let ventasEnabledForMe = true; // preferencia personal, no global
 
 function getJobPay(job){
   const override = jobPayOverrides[job.id];
@@ -733,17 +734,14 @@ function startPublicConfigListeners(){
     siteConfig = {
       title: (v && v.title) || DEFAULT_TITLE,
       subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
-      tips: (v && v.tips) || DEFAULT_TIPS.join('\n'),
-      salesHistoryEnabled: (v && typeof v.salesHistoryEnabled === 'boolean') ? v.salesHistoryEnabled : true
+      tips: (v && v.tips) || DEFAULT_TIPS.join('\n')
     };
     applySiteConfigToPage();
-    updateVentasNavVisibility();
     const cfgTitleInput = document.getElementById('cfgTitle');
     if(cfgTitleInput){
       cfgTitleInput.value = siteConfig.title;
       document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
       document.getElementById('cfgTips').value = siteConfig.tips;
-      document.getElementById('cfgVentasEnabled').checked = siteConfig.salesHistoryEnabled;
     }
   });
 
@@ -753,16 +751,27 @@ function startPublicConfigListeners(){
   });
 }
 
+function startPersonalPrefsListeners(){
+  if(!currentUser) return;
+  db.ref('uiPrefs/'+currentUser.uid+'/ventasEnabled').on('value', snap=>{
+    ventasEnabledForMe = (snap.val() === null) ? true : !!snap.val();
+    const checkbox = document.getElementById('cfgVentasEnabled');
+    if(checkbox) checkbox.checked = ventasEnabledForMe;
+    updateVentasNavVisibility();
+  });
+}
+
 function updateVentasNavVisibility(){
   const btn = document.getElementById('ventasToggleBtn');
-  const show = !!(currentUser && currentUser.role==='owner' && siteConfig.salesHistoryEnabled);
+  const show = !!(currentUser && currentUser.role==='owner' && ventasEnabledForMe);
   btn.style.display = show ? 'inline-flex' : 'none';
   if(!show && btn.classList.contains('nav-active')) setSection('mall');
 }
 
 document.getElementById('cfgVentasEnabled').addEventListener('change', async (e)=>{
-  await db.ref('siteConfig').update({salesHistoryEnabled: e.target.checked});
-  showToast(e.target.checked ? 'Ahora los dueños ven el botón en la barra.' : 'Se ocultó el botón para todos los dueños.', '💾 Guardado');
+  if(!currentUser) return;
+  await db.ref('uiPrefs/'+currentUser.uid+'/ventasEnabled').set(e.target.checked);
+  showToast(e.target.checked ? 'Vas a ver el botón en tu barra.' : 'Dejaste de verlo (solo para vos, no afecta a los demás).', '💾 Guardado');
 });
 
 function startConfigListeners(){
@@ -1414,6 +1423,7 @@ auth.onAuthStateChanged(async (user)=>{
     overlay.style.display = 'none';
     startAppOnce();
     applyStoredCollapseState();
+    startPersonalPrefsListeners();
   } else {
     currentUser = null;
     userBar.style.display = 'none';
