@@ -1959,11 +1959,27 @@ function renderRopaTable(){
     <h3 class="admin-subheading collapsible-header" data-target="ropero-sec-${r.id}"><span class="arrow">▾</span> ${r.name}</h3>
     <div class="collapsible-content" id="ropero-sec-${r.id}">
       <div id="ropaTableWrap-${r.id}"></div>
+      <button class="small-del-btn" data-action="delropero" data-roperoid="${r.id}" data-name="${r.name}" style="margin-top:8px;">Borrar este ropero</button>
     </div>
   `).join('');
   wireAllCollapsibles();
 
   roperos.forEach(r => renderRoperoTable(r.id, entries, roperos));
+
+  wrap.querySelectorAll('button[data-action="delropero"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const roperoId = btn.dataset.roperoid;
+      const name = btn.dataset.name;
+      const tienePrendas = entries.some(([k,v])=> String(v.ropero||'1') === String(roperoId));
+      if(tienePrendas){
+        alert(`"${name}" todavía tiene prendas cargadas. Borralas o movelas a otro ropero antes de poder borrarlo.`);
+        return;
+      }
+      if(!confirm(`¿Borrar el ropero "${name}"? No se puede deshacer.`)) return;
+      db.ref('caja/roperos/'+roperoId).remove();
+      showToast(`"${name}" borrado.`, '🗑 Ropero borrado');
+    });
+  });
 }
 
 function renderRoperoTable(roperoId, allEntries, roperos){
@@ -1980,7 +1996,7 @@ function renderRoperoTable(roperoId, allEntries, roperos){
     <tr>
       <td>${v.date}</td><td>${v.desc}</td>
       <td>${ownerName(v.owner)}</td>
-      <td>${fmtMoneyCaja(v.precio)}</td><td>${v.status}</td><td>${v.notas||''}</td>
+      <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-action="editprecio" data-key="${key}" value="${v.precio}"></td><td>${v.status}</td><td>${v.notas||''}</td>
       <td style="white-space:nowrap;">
         <button class="small-del-btn" data-action="up" data-key="${key}" ${idx===0?'disabled':''}>↑</button>
         <button class="small-del-btn" data-action="down" data-key="${key}" ${idx===entries.length-1?'disabled':''}>↓</button>
@@ -2009,6 +2025,14 @@ function renderRoperoTable(roperoId, allEntries, roperos){
   });
   box.querySelectorAll('.status-toggle-btn[data-key]:not([data-action])').forEach(btn=>{
     btn.addEventListener('click', ()=> db.ref('caja/ropa/'+btn.dataset.key+'/status').set(btn.dataset.tostatus));
+  });
+  box.querySelectorAll('input[data-action="editprecio"]').forEach(input=>{
+    input.addEventListener('change', ()=>{
+      const val = Number(input.value);
+      if(!val || val<=0){ alert('Poné un precio válido.'); input.value = entries.find(([k])=>k===input.dataset.key)[1].precio; return; }
+      db.ref('caja/ropa/'+input.dataset.key+'/precio').set(val);
+      showToast('Precio actualizado.', '💾 Guardado');
+    });
   });
   box.querySelectorAll('select[data-action="move"]').forEach(sel=>{
     sel.addEventListener('change', ()=>{
