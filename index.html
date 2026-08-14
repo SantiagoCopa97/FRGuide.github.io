@@ -1840,15 +1840,26 @@ const PRODUCT_CATEGORIES = [
   {id:'comida', name:'Comida', emoji:'🍎', buyable:true},
   {id:'herramientas', name:'Herramientas', emoji:'🛠️', buyable:true},
   {id:'objetos', name:'Objetos', emoji:'📦', buyable:false}, // sin Abastecimiento propio, solo se cargan a mano
+  {id:'comida_elaborados', name:'Comida elaborada', emoji:'👨‍🍳', buyable:false}, // se cocina, no se compra
 ];
 
-// Secciones que se VEN en pantalla — Objetos agrupa varias categorías de compra en una sola tabla,
+// Reglas de qué precio es obligatorio al crear un ítem nuevo a mano en cada categoría.
+// Las que no están acá usan el default: compra obligatoria, venta opcional (se compran en Abastecimiento).
+const CATEGORY_ITEM_RULES = {
+  objetos: {requireBuy:false, requireSell:true},
+  comida_elaborados: {requireBuy:false, requireSell:false},
+};
+function getItemRules(catId){
+  return CATEGORY_ITEM_RULES[catId] || {requireBuy:true, requireSell:false};
+}
+
+// Secciones que se VEN en pantalla — Objetos y Comida agrupan varias categorías en una sola tabla,
 // con una columna que indica el origen de cada ítem.
 const DISPLAY_SECTIONS = [
   {id:'medicina', name:'Medicina', emoji:'💊', sources:['medicina']},
   {id:'objetos', name:'Objetos', emoji:'📦', sources:['tecnologia','herramientas','objetos']},
   {id:'bebidas', name:'Bebidas', emoji:'🍺', sources:['bebidas']},
-  {id:'comida', name:'Comida', emoji:'🍎', sources:['comida']},
+  {id:'comida', name:'Comida', emoji:'🍎', sources:['comida','comida_elaborados']},
 ];
 
 function sectionForCategory(catId){
@@ -2501,13 +2512,9 @@ function renderProductCategorySections(){
       const secId = sel.dataset.sec;
       const sellInput = wrap.querySelector(`.prod-newitem-sell[data-sec="${secId}"]`);
       const buyInput = wrap.querySelector(`.prod-newitem-buy[data-sec="${secId}"]`);
-      if(sel.value === 'objetos'){
-        sellInput.placeholder = 'Precio venta $ (obligatorio)';
-        buyInput.placeholder = 'Precio compra $ (opcional)';
-      } else {
-        sellInput.placeholder = 'Precio venta $ (opcional)';
-        buyInput.placeholder = 'Precio compra $ (obligatorio)';
-      }
+      const rules = getItemRules(sel.value);
+      sellInput.placeholder = `Precio venta $ (${rules.requireSell ? 'obligatorio' : 'opcional'})`;
+      buyInput.placeholder = `Precio compra $ (${rules.requireBuy ? 'obligatorio' : 'opcional'})`;
     };
     sel.addEventListener('change', updatePlaceholders);
     updatePlaceholders();
@@ -2526,13 +2533,9 @@ function renderProductCategorySections(){
       const sell = Number(sellInput.value) || 0;
       const buy = Number(buyInput.value) || 0;
       if(!name){ alert('Poné un nombre.'); return; }
-      if(catId === 'objetos'){
-        // Objetos no se compra en el Mall: el precio de venta es obligatorio, el de compra es opcional
-        if(!sell || sell<=0){ alert('Poné un precio de venta válido.'); return; }
-      } else {
-        // Tecnología y Herramientas se compran en el Mall: el precio de compra es obligatorio
-        if(!buy || buy<=0){ alert('Poné un precio de compra válido.'); return; }
-      }
+      const rules = getItemRules(catId);
+      if(rules.requireSell && (!sell || sell<=0)){ alert('Poné un precio de venta válido.'); return; }
+      if(rules.requireBuy && (!buy || buy<=0)){ alert('Poné un precio de compra válido.'); return; }
       const paths = categoryPaths(catId);
       const newRef = db.ref(paths.items).push();
       await newRef.set({name, sell, buy});
