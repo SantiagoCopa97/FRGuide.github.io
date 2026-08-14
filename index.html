@@ -808,7 +808,9 @@ function renderVentasList(){
   const query = (document.getElementById('ventasSearch').value || '').toLowerCase().trim();
   const sortMode = document.getElementById('ventasSort').value;
 
-  let items = Object.values(ventasRopaCache).filter(v => v.status==='Vendido' || v.status==='Cobrado');
+  let items = Object.entries(ventasRopaCache)
+    .filter(([k,v]) => v.status==='Vendido' || v.status==='Cobrado')
+    .map(([k,v]) => ({key:k, ...v}));
   if(query) items = items.filter(v => (v.desc||'').toLowerCase().includes(query));
 
   items = items.slice();
@@ -830,15 +832,24 @@ function renderVentasList(){
       <td>${fmtMoneyCaja(v.precio)}</td>
       <td>${v.status}</td>
       <td>${v.date}</td>
+      <td><button class="small-del-btn" data-key="${v.key}">Borrar</button></td>
     </tr>
   `).join('');
   box.innerHTML = `
     <table class="admin-table">
-      <thead><tr><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Fecha</th></tr></thead>
+      <thead><tr><th>Prenda</th><th>Dueño</th><th>Precio</th><th>Estado</th><th>Fecha</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <p class="sub" style="margin-top:10px;">${items.length} venta${items.length===1?'':'s'} encontrada${items.length===1?'':'s'}.</p>
   `;
+
+  box.querySelectorAll('.small-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar esta venta del historial?')) return;
+      db.ref('caja/ropa/'+btn.dataset.key).remove();
+      showToast('Venta borrada.', '🗑 Borrado');
+    });
+  });
 }
 
 function renderCfgJobsList(){
