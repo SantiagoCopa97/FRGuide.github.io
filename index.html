@@ -749,14 +749,14 @@ function startPublicConfigListeners(){
 
 // Lista de secciones de Cierre de Caja que se pueden ocultar (categorías de producto + Ropa)
 function toggleableSections(){
-  return [...PRODUCT_CATEGORIES.map(c=>({id:c.id, label:`${c.emoji} ${c.name}`})), {id:'ropa', label:'👕 Ropa'}];
+  return [...DISPLAY_SECTIONS.map(s=>({id:s.id, label:`${s.emoji} ${s.name}`})), {id:'ropa', label:'👕 Ropa'}];
 }
 
 function applyCajaSectionVisibility(){
   const hidden = siteConfig.hiddenSections || {};
-  PRODUCT_CATEGORIES.forEach(cat=>{
-    const block = document.getElementById('prod-block-'+cat.id);
-    if(block) block.style.display = hidden[cat.id] ? 'none' : '';
+  DISPLAY_SECTIONS.forEach(section=>{
+    const block = document.getElementById('prod-block-'+section.id);
+    if(block) block.style.display = hidden[section.id] ? 'none' : '';
   });
   const ropaBlock = document.getElementById('block-ropa');
   if(ropaBlock) ropaBlock.style.display = hidden['ropa'] ? 'none' : '';
@@ -1834,10 +1834,34 @@ let gastosExtraCache = {};
 
 // ====== SISTEMA GENÉRICO DE PRODUCTOS (Medicina, Tecnología, y las que se sumen después) ======
 const PRODUCT_CATEGORIES = [
-  {id:'medicina', name:'Medicina', emoji:'💊'},
-  {id:'tecnologia', name:'Tecnología', emoji:'💻'},
-  {id:'bebidas', name:'Bebidas', emoji:'🍺'},
+  {id:'medicina', name:'Medicina', emoji:'💊', buyable:true},
+  {id:'tecnologia', name:'Tecnología', emoji:'💻', buyable:true},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺', buyable:true},
+  {id:'comida', name:'Comida', emoji:'🍎', buyable:true},
+  {id:'herramientas', name:'Herramientas', emoji:'🛠️', buyable:true},
+  {id:'objetos', name:'Objetos', emoji:'📦', buyable:false}, // sin Abastecimiento propio, solo se cargan a mano
 ];
+
+// Secciones que se VEN en pantalla — Objetos agrupa varias categorías de compra en una sola tabla,
+// con una columna que indica el origen de cada ítem.
+const DISPLAY_SECTIONS = [
+  {id:'medicina', name:'Medicina', emoji:'💊', sources:['medicina']},
+  {id:'objetos', name:'Objetos', emoji:'📦', sources:['tecnologia','herramientas','objetos']},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺', sources:['bebidas']},
+  {id:'comida', name:'Comida', emoji:'🍎', sources:['comida']},
+];
+
+function sectionForCategory(catId){
+  return DISPLAY_SECTIONS.find(s => s.sources.includes(catId));
+}
+
+function getSectionItems(section){
+  let combined = [];
+  section.sources.forEach(catId=>{
+    (PRODUCT_ITEMS[catId]||[]).forEach(item=> combined.push({...item, catId}));
+  });
+  return combined;
+}
 
 // Semillas iniciales — solo se usan la primera vez que la categoría no tiene ítems en Firebase.
 const DEFAULT_MEDICINE_ITEMS = {
@@ -1900,11 +1924,111 @@ const DEFAULT_BEBIDAS_ITEMS = {
   lata_ecola: {name:'Lata de Ecola', sell:0, buy:44},
   lata_sprunk: {name:'Lata de Sprunk', sell:0, buy:38},
 };
+const DEFAULT_COMIDA_ITEMS = {
+  aceite_cocina: {name:'Aceite de cocina', sell:0, buy:48},
+  ajo: {name:'Ajo', sell:0, buy:1},
+  atun: {name:'Atún', sell:0, buy:594},
+  azucar: {name:'Azúcar', sell:0, buy:20},
+  bagre: {name:'Bagre', sell:0, buy:239},
+  banana: {name:'Banana', sell:0, buy:12},
+  barra_chocolate: {name:'Barra de chocolate', sell:0, buy:23},
+  bolsa_arroz: {name:'Bolsa de arroz', sell:0, buy:77},
+  bolsa_comida_perro: {name:'Bolsa de comida para Perro', sell:0, buy:95},
+  bolsa_harina: {name:'Bolsa de harina', sell:0, buy:51},
+  bolsa_pan: {name:'Bolsa de pan', sell:0, buy:9},
+  bolsa_papel: {name:'Bolsa de papel', sell:0, buy:24},
+  bolsa_papitas_fritas: {name:'Bolsa de papitas fritas', sell:0, buy:24},
+  bolsa_patatas: {name:'Bolsa de patatas', sell:0, buy:40},
+  botella_leche: {name:'Botella de leche', sell:0, buy:52},
+  caja_huevos_mediana: {name:'Caja de huevos mediana', sell:0, buy:60},
+  caja_huevos_pequena: {name:'Caja de huevos pequeña', sell:0, buy:30},
+  caja_pizza_vacia: {name:'Caja de pizza vacía', sell:0, buy:38},
+  calabaza: {name:'Calabaza', sell:0, buy:52},
+  caramelos: {name:'Caramelos', sell:0, buy:37},
+  carne_cruda: {name:'Carne cruda', sell:0, buy:215},
+  carne_picada: {name:'Carne picada', sell:0, buy:45},
+  cebolla: {name:'Cebolla', sell:0, buy:58},
+  comida_gatos: {name:'Comida para gatos', sell:0, buy:100},
+  costilla_cruda: {name:'Costilla cruda', sell:0, buy:400},
+  cubeta_vacia: {name:'Cubeta vacía', sell:0, buy:35},
+  extracto_te: {name:'Extracto de té', sell:0, buy:11},
+  fideos_instantaneos: {name:'Fideos instantaneos', sell:0, buy:65},
+  fresa: {name:'Fresa', sell:0, buy:84},
+  frijoles: {name:'Frijoles', sell:0, buy:5},
+  ketchup: {name:'Ketchup', sell:0, buy:3},
+  lechuga: {name:'Lechuga', sell:0, buy:45},
+  limon: {name:'Limón', sell:0, buy:118},
+  mantequilla: {name:'Mantequilla', sell:0, buy:31},
+  manzana: {name:'Manzana', sell:0, buy:162},
+  mochila_delivery: {name:'Mochila "Delivery"', sell:0, buy:8905},
+  naranja: {name:'Naranja', sell:0, buy:9},
+  paquete_jamon: {name:'Paquete de jamón', sell:0, buy:4},
+  paquete_pasta: {name:'Paquete de pasta', sell:0, buy:39},
+  paquete_salchichas: {name:'Paquete de salchichas', sell:0, buy:6},
+  pata_jamon: {name:'Pata de jamón', sell:0, buy:15},
+  pepperoni: {name:'Pepperoni', sell:0, buy:27},
+  pina: {name:'Piña', sell:0, buy:50},
+  pollo_crudo: {name:'Pollo crudo', sell:0, buy:128},
+  queso: {name:'Queso', sell:0, buy:2},
+  sal: {name:'Sal', sell:0, buy:2},
+  salmon: {name:'Salmón', sell:0, buy:366},
+  salsa_bbq: {name:'Salsa BBQ', sell:0, buy:10},
+  sabalo: {name:'Sábalo', sell:0, buy:539},
+  tarro_cafe: {name:'Tarro de café', sell:0, buy:19},
+  tomate: {name:'Tomate', sell:0, buy:89},
+  uva: {name:'Uva', sell:0, buy:318},
+  zanahoria: {name:'Zanahoria', sell:0, buy:74},
+};
+const DEFAULT_HERRAMIENTAS_ITEMS = {
+  anotador: {name:'Anotador', sell:0, buy:322},
+  barbacoa: {name:'Barbacoa', sell:0, buy:2940},
+  barra_luminosa: {name:'Barra luminosa', sell:0, buy:350},
+  binocular: {name:'Binocular', sell:0, buy:3199},
+  caja_herramientas: {name:'Caja de herramientas', sell:0, buy:388},
+  cana_pescar: {name:'Caña de pescar', sell:0, buy:318},
+  destornillador: {name:'Destornillador', sell:0, buy:15},
+  linterna: {name:'Linterna', sell:0, buy:175},
+  llave_inglesa: {name:'Llave inglesa', sell:0, buy:770},
+  martillo: {name:'Martillo', sell:0, buy:350},
+  maza: {name:'Maza', sell:0, buy:210},
+  mesa_barril: {name:'Mesa de barril', sell:0, buy:1351},
+  mesa_madera_oscura: {name:'Mesa de madera oscura', sell:0, buy:2625},
+  mesa_madera_pequena: {name:'Mesa de madera pequeña', sell:0, buy:917},
+  mesa_madera_reciclada: {name:'Mesa de madera reciclada', sell:0, buy:2205},
+  mesa_plastico: {name:'Mesa de plastico', sell:0, buy:1750},
+  mesa_plastico_cuadrada: {name:'Mesa de plastico cuadrada', sell:0, buy:1050},
+  mesa_poker: {name:'Mesa de poker', sell:0, buy:2394},
+  mesa_plastica_artesanias: {name:'Mesa plástica con artesanías', sell:0, buy:1365},
+  motosierra: {name:'Motosierra', sell:0, buy:910},
+  palanca: {name:'Palanca', sell:0, buy:595},
+  pesa_pequena: {name:'Pesa pequeña', sell:0, buy:77},
+  rastrillo: {name:'Rastrillo', sell:0, buy:30},
+  regadera: {name:'Regadera', sell:0, buy:20},
+  rociador: {name:'Rociador', sell:0, buy:525},
+  silla_mimbre_verde: {name:'Silla de mimbre verde', sell:0, buy:2240},
+  silla_plastico: {name:'Silla de plastico', sell:0, buy:840},
+  silla_plegable_cuadros: {name:'Silla plegable a cuadros', sell:0, buy:3136},
+  silla_plegable_amarilla: {name:'Silla plegable amarilla', sell:0, buy:1988},
+  silla_plegable_azul: {name:'Silla plegable azul', sell:0, buy:3010},
+  silla_plegable_verde: {name:'Silla plegable verde', sell:0, buy:2961},
+  sofa_grande_azul: {name:'Sofá grande azul', sell:0, buy:3850},
+  sofa_grande_floral: {name:'Sofá grande floral', sell:0, buy:2625},
+  sofa_pequeno_diseno: {name:'Sofá pequeño con diseño', sell:0, buy:1995},
+  sofa_pequeno_cuero: {name:'Sofá pequeño de cuero', sell:0, buy:2475},
+  soplador: {name:'Soplador', sell:0, buy:135},
+  taladro: {name:'Taladro', sell:0, buy:245},
+  tienda_campana_1: {name:'Tienda de campaña', sell:0, buy:1260},
+  tienda_campana_2: {name:'Tienda de campaña', sell:0, buy:1400},
+  tienda_campana_3: {name:'Tienda de campaña', sell:0, buy:1750},
+  silla_plastico_reciclada: {name:'Silla de plástico reciclada', sell:0, buy:525},
+};
 
 function categoryDefaults(catId){
   if(catId==='medicina') return DEFAULT_MEDICINE_ITEMS;
   if(catId==='tecnologia') return DEFAULT_TECH_ITEMS;
   if(catId==='bebidas') return DEFAULT_BEBIDAS_ITEMS;
+  if(catId==='comida') return DEFAULT_COMIDA_ITEMS;
+  if(catId==='herramientas') return DEFAULT_HERRAMIENTAS_ITEMS;
   return {};
 }
 
@@ -1964,9 +2088,10 @@ document.getElementById('addOwnerBtn').addEventListener('click', async ()=>{
 function fillAbastCategorySelect(){
   const sel = document.getElementById('abastCategoria');
   if(!sel) return;
+  const buyables = PRODUCT_CATEGORIES.filter(c=>c.buyable);
   const prevVal = sel.value;
-  sel.innerHTML = PRODUCT_CATEGORIES.map(c=>`<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
-  sel.value = PRODUCT_CATEGORIES.some(c=>c.id===prevVal) ? prevVal : PRODUCT_CATEGORIES[0].id;
+  sel.innerHTML = buyables.map(c=>`<option value="${c.id}">${c.emoji} ${c.name}</option>`).join('');
+  sel.value = buyables.some(c=>c.id===prevVal) ? prevVal : buyables[0].id;
 }
 
 function fillAbastItemSelect(){
@@ -2004,7 +2129,7 @@ function startCajaListeners(){
 
     // Migración: si todavía no existe la lista de ítems de esta categoría, la sembramos una vez
     db.ref(paths.items).once('value').then(snap=>{
-      if(!snap.exists()){
+      if(!snap.exists() && Object.keys(categoryDefaults(cat.id)).length>0){
         db.ref(paths.items).set(categoryDefaults(cat.id));
       }
     });
@@ -2014,19 +2139,22 @@ function startCajaListeners(){
       PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0}));
       fillAbastItemSelect();
       updateAbastInversionPreview();
-      renderProductTable(cat.id);
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductTable(section);
       renderCajaResumen();
     });
 
     db.ref(paths.stock).on('value', snap=>{
       productStockCache[cat.id] = snap.val() || {};
-      renderProductTable(cat.id);
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductTable(section);
       renderCajaResumen();
     });
 
     db.ref(paths.ventas).on('value', snap=>{
       productVentasCache[cat.id] = snap.val() || {};
-      renderProductVentasList(cat.id);
+      const section = sectionForCategory(cat.id);
+      if(section) renderProductVentasList(section);
     });
   });
 
@@ -2326,104 +2454,146 @@ document.getElementById('saveCajaBtn').addEventListener('click', async ()=>{
 function renderProductCategorySections(){
   const wrap = document.getElementById('productCategoriesWrap');
   if(!wrap) return;
-  wrap.innerHTML = PRODUCT_CATEGORIES.map(cat=>`
-    <div id="prod-block-${cat.id}">
-      <h3 class="admin-subheading collapsible-header" data-target="prod-sec-${cat.id}"><span class="arrow">▾</span> ${cat.emoji} ${cat.name} — stock y ventas</h3>
-      <div class="collapsible-content" id="prod-sec-${cat.id}">
-        <p class="sub" style="margin:6px 0;">Editá precios directo en la tabla y usá el − / + del stock. Si el stock baja, cuenta como venta; si sube, es corrección manual.</p>
-        <div id="prod-table-${cat.id}"></div>
+  wrap.innerHTML = DISPLAY_SECTIONS.map(section=>{
+    const multiOrigen = section.sources.length > 1;
+    const origenOptions = section.sources.map(catId=>{
+      const c = PRODUCT_CATEGORIES.find(c=>c.id===catId);
+      return `<option value="${catId}">${c.emoji} ${c.name}</option>`;
+    }).join('');
+    return `
+    <div id="prod-block-${section.id}">
+      <h3 class="admin-subheading collapsible-header" data-target="prod-sec-${section.id}"><span class="arrow">▾</span> ${section.emoji} ${section.name} — stock y ventas</h3>
+      <div class="collapsible-content" id="prod-sec-${section.id}">
+        <p class="sub" style="margin:6px 0;">Editá precios directo en la tabla y usá el − / + del stock. Si el stock baja, cuenta como venta; si sube, es corrección manual.${multiOrigen ? ' La columna "Origen" indica de qué categoría de Abastecimiento viene cada ítem.' : ''}</p>
+        <div id="prod-table-${section.id}"></div>
 
-        <button class="dismiss-all-btn" data-action="toggle-newitem" data-cat="${cat.id}" style="margin:8px 0;">+ Agregar ítem nuevo</button>
-        <div class="caja-form-row" id="prod-newitem-row-${cat.id}" style="display:none;">
-          <input type="text" class="prod-newitem-name" data-cat="${cat.id}" placeholder="Nombre del ítem">
-          <input type="number" class="prod-newitem-sell" data-cat="${cat.id}" placeholder="Precio venta $ (opcional)">
-          <input type="number" class="prod-newitem-buy" data-cat="${cat.id}" placeholder="Precio compra $">
-          <button class="pay-btn" data-action="add-item" data-cat="${cat.id}">Crear ítem</button>
+        <button class="dismiss-all-btn" data-action="toggle-newitem" data-sec="${section.id}" style="margin:8px 0;">+ Agregar ítem nuevo</button>
+        <div class="caja-form-row" id="prod-newitem-row-${section.id}" style="display:none;">
+          ${multiOrigen ? `<select class="prod-newitem-origen" data-sec="${section.id}">${origenOptions}</select>` : ''}
+          <input type="text" class="prod-newitem-name" data-sec="${section.id}" placeholder="Nombre del ítem">
+          <input type="number" class="prod-newitem-sell" data-sec="${section.id}" placeholder="Precio venta $ (opcional)">
+          <input type="number" class="prod-newitem-buy" data-sec="${section.id}" placeholder="Precio compra $">
+          <button class="pay-btn" data-action="add-item" data-sec="${section.id}">Crear ítem</button>
         </div>
 
         <div style="margin-top:14px;">
-          <button class="pay-btn" data-action="save" data-cat="${cat.id}">Guardar cambios</button>
+          <button class="pay-btn" data-action="save" data-sec="${section.id}">Guardar cambios</button>
         </div>
 
-        <div id="prod-ventaslist-${cat.id}" style="margin-top:12px;"></div>
-        <div id="prod-totales-${cat.id}" class="caja-totales"></div>
+        <div id="prod-ventaslist-${section.id}" style="margin-top:12px;"></div>
+        <div id="prod-totales-${section.id}" class="caja-totales"></div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   wireAllCollapsibles();
   applyCajaSectionVisibility();
 
   wrap.querySelectorAll('button[data-action="toggle-newitem"]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const row = document.getElementById('prod-newitem-row-'+btn.dataset.cat);
+      const row = document.getElementById('prod-newitem-row-'+btn.dataset.sec);
       row.style.display = row.style.display==='none' ? 'flex' : 'none';
     });
   });
 
+  wrap.querySelectorAll('.prod-newitem-origen').forEach(sel=>{
+    const updatePlaceholders = ()=>{
+      const secId = sel.dataset.sec;
+      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-sec="${secId}"]`);
+      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-sec="${secId}"]`);
+      if(sel.value === 'objetos'){
+        sellInput.placeholder = 'Precio venta $ (obligatorio)';
+        buyInput.placeholder = 'Precio compra $ (opcional)';
+      } else {
+        sellInput.placeholder = 'Precio venta $ (opcional)';
+        buyInput.placeholder = 'Precio compra $ (obligatorio)';
+      }
+    };
+    sel.addEventListener('change', updatePlaceholders);
+    updatePlaceholders();
+  });
+
   wrap.querySelectorAll('button[data-action="add-item"]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
-      const catId = btn.dataset.cat;
-      const nameInput = wrap.querySelector(`.prod-newitem-name[data-cat="${catId}"]`);
-      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-cat="${catId}"]`);
-      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-cat="${catId}"]`);
+      const secId = btn.dataset.sec;
+      const section = DISPLAY_SECTIONS.find(s=>s.id===secId);
+      const origenSelect = wrap.querySelector(`.prod-newitem-origen[data-sec="${secId}"]`);
+      const catId = origenSelect ? origenSelect.value : section.sources[0];
+      const nameInput = wrap.querySelector(`.prod-newitem-name[data-sec="${secId}"]`);
+      const sellInput = wrap.querySelector(`.prod-newitem-sell[data-sec="${secId}"]`);
+      const buyInput = wrap.querySelector(`.prod-newitem-buy[data-sec="${secId}"]`);
       const name = nameInput.value.trim();
       const sell = Number(sellInput.value) || 0;
-      const buy = Number(buyInput.value);
+      const buy = Number(buyInput.value) || 0;
       if(!name){ alert('Poné un nombre.'); return; }
-      if(!buy || buy<=0){ alert('Poné un precio de compra válido.'); return; }
+      if(catId === 'objetos'){
+        // Objetos no se compra en el Mall: el precio de venta es obligatorio, el de compra es opcional
+        if(!sell || sell<=0){ alert('Poné un precio de venta válido.'); return; }
+      } else {
+        // Tecnología y Herramientas se compran en el Mall: el precio de compra es obligatorio
+        if(!buy || buy<=0){ alert('Poné un precio de compra válido.'); return; }
+      }
       const paths = categoryPaths(catId);
       const newRef = db.ref(paths.items).push();
       await newRef.set({name, sell, buy});
       nameInput.value = ''; sellInput.value = ''; buyInput.value = '';
-      document.getElementById('prod-newitem-row-'+catId).style.display = 'none';
-      showToast(`${name} — compra ${fmtMoneyCaja(buy)}${sell?` / venta ${fmtMoneyCaja(sell)}`:''}`, '💾 Ítem creado');
+      document.getElementById('prod-newitem-row-'+secId).style.display = 'none';
+      showToast(`${name}${buy?` — compra ${fmtMoneyCaja(buy)}`:''}${sell?` / venta ${fmtMoneyCaja(sell)}`:''}`, '💾 Ítem creado');
     });
   });
 
   wrap.querySelectorAll('button[data-action="save"]').forEach(btn=>{
-    btn.addEventListener('click', ()=> saveProductCategoryChanges(btn.dataset.cat));
+    btn.addEventListener('click', ()=>{
+      const section = DISPLAY_SECTIONS.find(s=>s.id===btn.dataset.sec);
+      saveProductCategoryChanges(section);
+    });
   });
 }
 
-function renderProductTable(catId){
-  const box = document.getElementById('prod-table-'+catId);
+function renderProductTable(section){
+  const box = document.getElementById('prod-table-'+section.id);
   if(!box) return;
-  const items = PRODUCT_ITEMS[catId] || [];
-  const stockCache = productStockCache[catId] || {};
+  const items = getSectionItems(section);
+  const multiOrigen = section.sources.length > 1;
+
   if(items.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
   else{
     const rows = items.map(item=>{
+      const stockCache = productStockCache[item.catId] || {};
       const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
+      const catInfo = PRODUCT_CATEGORIES.find(c=>c.id===item.catId);
       return `
         <tr>
           <td>${item.name}</td>
-          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
-          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
+          ${multiOrigen ? `<td><span class="tag" style="font-size:11px;">${catInfo ? catInfo.emoji+' '+catInfo.name : item.catId}</span></td>` : ''}
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-cat="${item.catId}" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
+          <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-cat="${item.catId}" data-key="${item.key}" data-field="buy" value="${item.buy}"></td>
           <td style="white-space:nowrap;">
-            <button class="small-del-btn" data-action="stockdown" data-key="${item.key}">−</button>
-            <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-key="${item.key}" value="${st.stock||0}">
-            <button class="small-del-btn" data-action="stockup" data-key="${item.key}">+</button>
+            <button class="small-del-btn" data-action="stockdown" data-cat="${item.catId}" data-key="${item.key}">−</button>
+            <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-cat="${item.catId}" data-key="${item.key}" value="${st.stock||0}">
+            <button class="small-del-btn" data-action="stockup" data-cat="${item.catId}" data-key="${item.key}">+</button>
           </td>
-          <td><button class="small-del-btn" data-action="delitem" data-key="${item.key}">Quitar ítem</button></td>
+          <td><button class="small-del-btn" data-action="delitem" data-cat="${item.catId}" data-key="${item.key}">Quitar ítem</button></td>
         </tr>
       `;
     }).join('');
-    box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th><th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th>${multiOrigen?'<th>Origen</th>':''}<th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 
     box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+        const input = box.querySelector(`.med-stock-input[data-cat="${btn.dataset.cat}"][data-key="${btn.dataset.key}"]`);
         input.value = Math.max(0, (Number(input.value)||0) - 1);
       });
     });
     box.querySelectorAll('button[data-action="stockup"]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const input = box.querySelector(`.med-stock-input[data-key="${btn.dataset.key}"]`);
+        const input = box.querySelector(`.med-stock-input[data-cat="${btn.dataset.cat}"][data-key="${btn.dataset.key}"]`);
         input.value = (Number(input.value)||0) + 1;
       });
     });
     box.querySelectorAll('button[data-action="delitem"]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
+        const catId = btn.dataset.cat;
         const item = (PRODUCT_ITEMS[catId]||[]).find(i=>i.key===btn.dataset.key);
         if(!confirm(`¿Quitar "${item.name}" de la lista? Se borra también su stock actual.`)) return;
         const paths = categoryPaths(catId);
@@ -2436,9 +2606,9 @@ function renderProductTable(catId){
     });
   }
 
-  const ventaTotal = items.reduce((s,i)=> s+((stockCache[i.key]||{}).ventaAcumulada||0), 0);
-  const compraTotal = items.reduce((s,i)=> s+((stockCache[i.key]||{}).compraAcumulada||0), 0);
-  const totalesBox = document.getElementById('prod-totales-'+catId);
+  const ventaTotal = items.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.ventaAcumulada||0), 0);
+  const compraTotal = items.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.compraAcumulada||0), 0);
+  const totalesBox = document.getElementById('prod-totales-'+section.id);
   if(totalesBox){
     totalesBox.innerHTML = `
       <span>Vendido esta ronda: <b>${fmtMoneyCaja(ventaTotal)}</b></span>
@@ -2447,18 +2617,18 @@ function renderProductTable(catId){
   }
 }
 
-async function saveProductCategoryChanges(catId){
-  const items = PRODUCT_ITEMS[catId] || [];
-  const stockCache = productStockCache[catId] || {};
-  const paths = categoryPaths(catId);
+async function saveProductCategoryChanges(section){
+  const items = getSectionItems(section);
   const updates = {};
   let changed = false;
 
   items.forEach(item=>{
+    const paths = categoryPaths(item.catId);
+    const stockCache = productStockCache[item.catId] || {};
     const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
-    const sellInput = document.querySelector(`#prod-table-${catId} .med-qty-input[data-key="${item.key}"][data-field="sell"]`);
-    const buyInput = document.querySelector(`#prod-table-${catId} .med-qty-input[data-key="${item.key}"][data-field="buy"]`);
-    const stockInput = document.querySelector(`#prod-table-${catId} .med-stock-input[data-key="${item.key}"]`);
+    const sellInput = document.querySelector(`#prod-table-${section.id} .med-qty-input[data-cat="${item.catId}"][data-key="${item.key}"][data-field="sell"]`);
+    const buyInput = document.querySelector(`#prod-table-${section.id} .med-qty-input[data-cat="${item.catId}"][data-key="${item.key}"][data-field="buy"]`);
+    const stockInput = document.querySelector(`#prod-table-${section.id} .med-stock-input[data-cat="${item.catId}"][data-key="${item.key}"]`);
     if(!sellInput || !buyInput || !stockInput) return;
 
     const newSell = Number(sellInput.value) || 0;
@@ -2495,28 +2665,31 @@ async function saveProductCategoryChanges(catId){
 
   if(!changed){ showToast('No había cambios para guardar.', 'ℹ️ Sin cambios'); return; }
   await db.ref().update(updates);
-  showToast(`Stock y precios de ${catName(catId)} actualizados.`, '💾 Guardado');
+  showToast(`Stock y precios de ${section.name} actualizados.`, '💾 Guardado');
 }
 
-function renderProductVentasList(catId){
-  const box = document.getElementById('prod-ventaslist-'+catId);
+function renderProductVentasList(section){
+  const box = document.getElementById('prod-ventaslist-'+section.id);
   if(!box) return;
-  const cache = productVentasCache[catId] || {};
-  const entries = Object.entries(cache);
+  let entries = [];
+  section.sources.forEach(catId=>{
+    const cache = productVentasCache[catId] || {};
+    Object.entries(cache).forEach(([key,v])=> entries.push({key, catId, ...v}));
+  });
   if(entries.length===0){ box.innerHTML = ''; return; }
-  entries.sort((a,b)=> b[1].timestamp - a[1].timestamp);
-  box.innerHTML = `<div class="payments-list">${entries.map(([key,v])=>`
+  entries.sort((a,b)=> b.timestamp - a.timestamp);
+  box.innerHTML = `<div class="payments-list">${entries.map(v=>`
     <div class="payment-row">
       <span>${v.itemName} — ${v.qty} un. — ${fmtMoneyCaja(v.monto)}</span>
-      <button class="small-del-btn" data-key="${key}" data-itemkey="${v.itemKey}" data-monto="${v.monto}">Borrar</button>
+      <button class="small-del-btn" data-key="${v.key}" data-cat="${v.catId}" data-itemkey="${v.itemKey}" data-monto="${v.monto}">Borrar</button>
     </div>
   `).join('')}</div>`;
 
   box.querySelectorAll('.small-del-btn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       if(!confirm('¿Borrar este registro de venta? El stock no se toca, solo se descuenta la plata y se borra el registro.')) return;
-      const {key, itemkey, monto} = btn.dataset;
-      const paths = categoryPaths(catId);
+      const {key, cat, itemkey, monto} = btn.dataset;
+      const paths = categoryPaths(cat);
       await db.ref(paths.stock+'/'+itemkey).transaction(st=>{
         st = st || {stock:0, ventaAcumulada:0, compraAcumulada:0};
         st.ventaAcumulada = Math.max(0, (st.ventaAcumulada||0) - Number(monto));
