@@ -2177,6 +2177,7 @@ function catName(catId){
 let PRODUCT_ITEMS = {};      // {catId: [{key,name,sell,buy}]}
 let productStockCache = {};  // {catId: {itemKey: {stock, ventaAcumulada, compraAcumulada}}}
 let productVentasCache = {}; // {catId: {pushId: {...}}}
+let showHiddenBySection = {}; // {sectionId: bool} — vista: mostrar u ocultar los ítems marcados como ocultos (solo en memoria)
 
 function fmtMoneyCaja(n){
   return '$' + Math.round(n||0).toLocaleString('es-AR');
@@ -2271,7 +2272,7 @@ function startCajaListeners(){
 
     db.ref(paths.items).on('value', snap=>{
       const raw = snap.val() || {};
-      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0, order:raw[key].order}));
+      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0, order:raw[key].order, hidden:!!raw[key].hidden}));
       fillAbastItemSelect();
       updateAbastInversionPreview();
       const section = sectionForCategory(cat.id);
@@ -2687,17 +2688,26 @@ function renderProductCategorySections(){
 function renderProductTable(section){
   const box = document.getElementById('prod-table-'+section.id);
   if(!box) return;
-  const items = getSectionItems(section);
+  const allItems = getSectionItems(section);
   const multiOrigen = section.sources.length > 1;
+  const showHidden = !!showHiddenBySection[section.id];
+  const hiddenCount = allItems.filter(i=>i.hidden).length;
+  const items = showHidden ? allItems : allItems.filter(i=>!i.hidden);
 
-  if(items.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
+  // Ojito al comienzo de la lista: ver / dejar de ver los ítems ocultos (NO los desoculta)
+  const eyeBar = hiddenCount>0
+    ? `<div style="margin-bottom:8px;"><button class="small-del-btn" data-action="toggleshowhidden" data-sec="${section.id}" title="${showHidden?'Dejar de ver los ocultos':'Ver los ítems ocultos'}">${showHidden?'👁️':'🙈'} ${hiddenCount} oculto${hiddenCount!==1?'s':''}</button></div>`
+    : '';
+
+  if(allItems.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
+  else if(items.length===0){ box.innerHTML = eyeBar + '<div class="admin-empty">Todos los ítems están ocultos. Tocá el ojito para verlos.</div>'; }
   else{
     const rows = items.map((item, idx)=>{
       const stockCache = productStockCache[item.catId] || {};
       const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
       const catInfo = PRODUCT_CATEGORIES.find(c=>c.id===item.catId);
       return `
-        <tr>
+        <tr${item.hidden?' style="opacity:.5;"':''}>
           <td>${item.name}</td>
           ${multiOrigen ? `<td><span class="tag" style="font-size:11px;">${catInfo ? catInfo.emoji+' '+catInfo.name : item.catId}</span></td>` : ''}
           <td><input type="number" min="0" class="med-qty-input" style="width:90px;" data-cat="${item.catId}" data-key="${item.key}" data-field="sell" value="${item.sell}"></td>
@@ -2711,11 +2721,12 @@ function renderProductTable(section){
             <button class="small-del-btn" data-action="itemup" data-cat="${item.catId}" data-key="${item.key}" ${idx===0?'disabled':''}>↑</button>
             <button class="small-del-btn" data-action="itemdown" data-cat="${item.catId}" data-key="${item.key}" ${idx===items.length-1?'disabled':''}>↓</button>
             <button class="small-del-btn" data-action="delitem" data-cat="${item.catId}" data-key="${item.key}">Quitar ítem</button>
+            <button class="small-del-btn" data-action="togglehide" data-cat="${item.catId}" data-key="${item.key}" title="${item.hidden?'Mostrar este ítem':'Ocultar este ítem'}">${item.hidden?'🙈':'👁️'}</button>
           </td>
         </tr>
       `;
     }).join('');
-    box.innerHTML = `<table class="admin-table"><thead><tr><th>Ítem</th>${multiOrigen?'<th>Origen</th>':''}<th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    box.innerHTML = eyeBar + `<table class="admin-table"><thead><tr><th>Ítem</th>${multiOrigen?'<th>Origen</th>':''}<th>Precio venta</th><th>Precio compra</th><th>Stock (− / +)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 
     box.querySelectorAll('button[data-action="stockdown"]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -2743,6 +2754,15 @@ function renderProductTable(section){
       });
     });
 
+    box.querySelectorAll('button[data-action="togglehide"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const item = (PRODUCT_ITEMS[btn.dataset.cat]||[]).find(i=>i.key===btn.dataset.key);
+        const nowHidden = !(item && item.hidden);
+        db.ref(categoryPaths(btn.dataset.cat).items+'/'+btn.dataset.key+'/hidden').set(nowHidden);
+        showToast(nowHidden ? `${item?item.name:'Ítem'} ocultado.` : `${item?item.name:'Ítem'} visible de nuevo.`, '👁️ Vista');
+      });
+    });
+
     box.querySelectorAll('button[data-action="itemup"], button[data-action="itemdown"]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = items.findIndex(i=> i.catId===btn.dataset.cat && i.key===btn.dataset.key);
@@ -2760,14 +2780,23 @@ function renderProductTable(section){
     });
   }
 
-  const ventaTotal = items.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.ventaAcumulada||0), 0);
-  const compraTotal = items.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.compraAcumulada||0), 0);
+  // Los totales cuentan TODOS los ítems (incluso los ocultos): la plata es plata
+  const ventaTotal = allItems.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.ventaAcumulada||0), 0);
+  const compraTotal = allItems.reduce((s,i)=> s+((productStockCache[i.catId]?.[i.key])?.compraAcumulada||0), 0);
   const totalesBox = document.getElementById('prod-totales-'+section.id);
   if(totalesBox){
     totalesBox.innerHTML = `
       <span>Vendido esta ronda: <b>${fmtMoneyCaja(ventaTotal)}</b></span>
       <span>Gastado en reposición esta ronda: <b>${fmtMoneyCaja(compraTotal)}</b></span>
     `;
+  }
+
+  const showHiddenBtn = box.querySelector('button[data-action="toggleshowhidden"]');
+  if(showHiddenBtn){
+    showHiddenBtn.addEventListener('click', ()=>{
+      showHiddenBySection[section.id] = !showHiddenBySection[section.id];
+      renderProductTable(section);
+    });
   }
 }
 
