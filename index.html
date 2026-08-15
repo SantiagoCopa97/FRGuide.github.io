@@ -1841,6 +1841,7 @@ const PRODUCT_CATEGORIES = [
   {id:'herramientas', name:'Herramientas', emoji:'🛠️', buyable:true},
   {id:'objetos', name:'Objetos', emoji:'📦', buyable:false}, // sin Abastecimiento propio, solo se cargan a mano
   {id:'comida_elaborados', name:'Comida elaborada', emoji:'👨‍🍳', buyable:false}, // se cocina, no se compra
+  {id:'bebidas_elaboradas', name:'Bebidas elaboradas', emoji:'🍹', buyable:false}, // se preparan/venden, no se compran
 ];
 
 // Reglas de qué precio es obligatorio al crear un ítem nuevo a mano en cada categoría.
@@ -1848,6 +1849,7 @@ const PRODUCT_CATEGORIES = [
 const CATEGORY_ITEM_RULES = {
   objetos: {requireBuy:false, requireSell:true},
   comida_elaborados: {requireBuy:false, requireSell:false},
+  bebidas_elaboradas: {requireBuy:false, requireSell:false},
 };
 function getItemRules(catId){
   return CATEGORY_ITEM_RULES[catId] || {requireBuy:true, requireSell:false};
@@ -1858,7 +1860,7 @@ function getItemRules(catId){
 const DISPLAY_SECTIONS = [
   {id:'medicina', name:'Medicina', emoji:'💊', sources:['medicina']},
   {id:'objetos', name:'Objetos', emoji:'📦', sources:['tecnologia','herramientas','objetos']},
-  {id:'bebidas', name:'Bebidas', emoji:'🍺', sources:['bebidas']},
+  {id:'bebidas', name:'Bebidas', emoji:'🍺', sources:['bebidas','bebidas_elaboradas']},
   {id:'comida', name:'Comida', emoji:'🍎', sources:['comida','comida_elaborados']},
 ];
 
@@ -2034,12 +2036,102 @@ const DEFAULT_HERRAMIENTAS_ITEMS = {
   silla_plastico_reciclada: {name:'Silla de plástico reciclada', sell:0, buy:525},
 };
 
+const DEFAULT_COMIDA_ELABORADOS_ITEMS = {
+  carne_cocida: {name:'Carne cocida', sell:0, buy:0},
+  pollo_cocido: {name:'Pollo cocido', sell:0, buy:0},
+  sandwich: {name:'Sandwich', sell:0, buy:0},
+  perro_caliente: {name:'Perro caliente', sell:0, buy:0},
+  hamburguesa: {name:'Hamburguesa', sell:0, buy:0},
+  taco: {name:'Taco', sell:0, buy:0},
+  nuggets_pollo: {name:'Nuggets de pollo', sell:0, buy:0},
+  pollo_asado_vegetales: {name:'Pollo asado con vegetales', sell:0, buy:0},
+  carne_asada_vegetales: {name:'Carne asada con vegetales', sell:0, buy:0},
+  bagre_asado_vegetales: {name:'Bagre asado con vegetales', sell:0, buy:0},
+  sopa_pollo: {name:'Sopa de pollo', sell:0, buy:0},
+  sopa_calabaza: {name:'Sopa de calabaza', sell:0, buy:0},
+  sopa_pescado: {name:'Sopa de pescado', sell:0, buy:0},
+  plato_sushi: {name:'Plato de Sushi', sell:0, buy:0},
+  huevo_chocolate: {name:'Huevo de chocolate', sell:0, buy:0},
+  costilla_bbq: {name:'Costilla BBQ', sell:0, buy:0},
+  patata_horneada: {name:'Patata horneada', sell:0, buy:0},
+  pizza_personal_pepperoni: {name:'Pizza personal "Pepperoni"', sell:0, buy:0},
+  pizza_personal_tres_carnes: {name:'Pizza personal "Tres Carnes"', sell:0, buy:0},
+  pizza_personal_queso: {name:'Pizza personal "Queso"', sell:0, buy:0},
+  pizza_personal_napolitana: {name:'Pizza personal "Napolitana"', sell:0, buy:0},
+  dumpling: {name:'Dumpling', sell:0, buy:0},
+  ramen: {name:'Ramen', sell:0, buy:0},
+  eomuk_torta_pescado: {name:'"Eomuk" Torta de pescado', sell:0, buy:0},
+  caja_pizza_pepperoni: {name:'Caja de pizza "Pepperoni"', sell:0, buy:0},
+  caja_pizza_tres_carnes: {name:'Caja de pizza "Tres Carnes"', sell:0, buy:0},
+  caja_pizza_queso: {name:'Caja de pizza "Queso"', sell:0, buy:0},
+  caja_pizza_napolitana: {name:'Caja de pizza "Napolitana"', sell:0, buy:0},
+  cubeta_pollo_frito: {name:'Cubeta de pollo frito', sell:0, buy:0},
+  dango_pincho_dumplings: {name:'"Dango" Pincho de dumplings', sell:0, buy:0},
+  sopa_instantanea: {name:'Sopa instantanea', sell:0, buy:0},
+  pollo_frito: {name:'Pollo frito', sell:0, buy:0},
+  patatas_fritas: {name:'Patatas fritas', sell:0, buy:0},
+  tamagoyaki_sushi_omelet: {name:'"Tamagoyaki" Sushi de omelet', sell:0, buy:0},
+  rollo_primavera: {name:'Rollo de primavera', sell:0, buy:0},
+  arroz_frito: {name:'Arroz frito', sell:0, buy:0},
+};
+const DEFAULT_BEBIDAS_ELABORADAS_ITEMS = {
+  // Calientes
+  taza_cafe: {name:'Taza de café', sell:0, buy:0},
+  cappuccino: {name:'Cappuccino', sell:0, buy:0},
+  espresso: {name:'Espresso', sell:0, buy:0},
+  mocha: {name:'Mocha', sell:0, buy:0},
+  cafe_irlandes: {name:'Café irlandés', sell:0, buy:0},
+  chocolatada_feliz: {name:'Chocolatada Feliz', sell:0, buy:0},
+  taza_navidad: {name:'Taza de navidad', sell:0, buy:0},
+  taza_galleta_jengibre: {name:'Taza galleta de jengibre', sell:0, buy:0},
+  agua_caliente: {name:'Agua caliente', sell:0, buy:0},
+  te_limon: {name:'Té de limón', sell:0, buy:0},
+  // Jugos / batidos / gaseosas
+  zumo_fresas: {name:'Zumo de Fresas', sell:0, buy:0},
+  malteada_banana: {name:'Malteada de Banana', sell:0, buy:0},
+  batido_frutas: {name:'Batido de frutas', sell:0, buy:0},
+  limonada: {name:'Limonada', sell:0, buy:0},
+  jugo_naranja: {name:'Jugo de naranja', sell:0, buy:0},
+  jugo_pina: {name:'Jugo de piña', sell:0, buy:0},
+  jugo_uvas: {name:'Jugo de uvas', sell:0, buy:0},
+  te_burbujas: {name:'Té de burbujas', sell:0, buy:0},
+  vaso_ecola: {name:'Vaso de E-Cola', sell:0, buy:0},
+  vaso_sprunk: {name:'Vaso de sprunk', sell:0, buy:0},
+  // Cócteles
+  coctel_pina_colada: {name:'Cóctel "Piña colada"', sell:0, buy:0},
+  coctel_cosmopolitan: {name:'Cóctel "Cosmopolitan"', sell:0, buy:0},
+  coctel_long_island: {name:'Cóctel "Long Island Iced Tea"', sell:0, buy:0},
+  coctel_margarita: {name:'Cóctel "Margarita"', sell:0, buy:0},
+  coctel_bloody_mary: {name:'Cóctel "Bloody Mary"', sell:0, buy:0},
+  coctel_whisky_rocas: {name:'Cóctel "Whisky en las Rocas"', sell:0, buy:0},
+  coctel_mojito: {name:'Cóctel "Mojito"', sell:0, buy:0},
+  coctel_manhattan: {name:'Cóctel "Manhattan"', sell:0, buy:0},
+  coctel_daiquiri: {name:'Cóctel "Daiquiri"', sell:0, buy:0},
+  copa_whisky: {name:'Copa de Whisky', sell:0, buy:0},
+  coctel_tequila: {name:'Cóctel "Tequila"', sell:0, buy:0},
+  coctel_tequila_sunrise: {name:'Cóctel "Tequila Sunrise"', sell:0, buy:0},
+  coctel_martini: {name:'Cóctel "Martini"', sell:0, buy:0},
+  // Packs de cerveza
+  pack6_blarneys: {name:'Pack de 6 cervezas "Blarneys"', sell:0, buy:0},
+  pack6_dusche: {name:'Pack de 6 cervezas "Dusche"', sell:0, buy:0},
+  pack6_patriot: {name:'Pack de 6 cervezas "Patriot"', sell:0, buy:0},
+  pack6_pisswasser: {name:'Pack de 6 cervezas "Pißwasser"', sell:0, buy:0},
+  pack6_afterlife: {name:'Pack de 6 cervezas "Afterlife"', sell:0, buy:0},
+  pack6_pride: {name:'Pack de 6 cervezas "Pride"', sell:0, buy:0},
+  pack6_barracho: {name:'Pack de 6 cervezas "Barracho"', sell:0, buy:0},
+  pack6_jakeys: {name:'Pack de 6 cervezas "Jakey\'s"', sell:0, buy:0},
+  pack6_logger: {name:'Pack de 6 cervezas "Logger"', sell:0, buy:0},
+  pack6_stronzo: {name:'Pack de 6 cervezas "Stronzo"', sell:0, buy:0},
+};
+
 function categoryDefaults(catId){
   if(catId==='medicina') return DEFAULT_MEDICINE_ITEMS;
   if(catId==='tecnologia') return DEFAULT_TECH_ITEMS;
   if(catId==='bebidas') return DEFAULT_BEBIDAS_ITEMS;
   if(catId==='comida') return DEFAULT_COMIDA_ITEMS;
   if(catId==='herramientas') return DEFAULT_HERRAMIENTAS_ITEMS;
+  if(catId==='comida_elaborados') return DEFAULT_COMIDA_ELABORADOS_ITEMS;
+  if(catId==='bebidas_elaboradas') return DEFAULT_BEBIDAS_ELABORADAS_ITEMS;
   return {};
 }
 
@@ -2894,6 +2986,7 @@ function wireCollapsibleHeader(header){
     if(!t) return;
     const nowCollapsed = t.classList.toggle('collapsed');
     header.classList.toggle('collapsed', nowCollapsed);
+    collapsePrefsCache[header.dataset.target] = nowCollapsed;
     if(currentUser){
       db.ref('uiPrefs/'+currentUser.uid+'/collapsed/'+header.dataset.target).set(nowCollapsed);
     }
