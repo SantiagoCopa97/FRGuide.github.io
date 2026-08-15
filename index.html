@@ -2233,7 +2233,7 @@ function fillAbastCategorySelect(){
 function fillAbastItemSelect(){
   const catSel = document.getElementById('abastCategoria');
   const catId = catSel && catSel.value ? catSel.value : PRODUCT_CATEGORIES[0].id;
-  const items = PRODUCT_ITEMS[catId] || [];
+  const items = (PRODUCT_ITEMS[catId] || []).filter(i=>!i.hidden); // los ocultos no aparecen en el desplegable
   document.getElementById('abastItemSelect').innerHTML = items.map(i=>
     `<option value="${i.key}">${i.name} (compra ${fmtMoneyCaja(i.buy)})</option>`
   ).join('');
