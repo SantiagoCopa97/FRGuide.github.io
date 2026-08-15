@@ -440,6 +440,15 @@ footer{text-align:center;color:var(--text-dimmer);font-size:11.5px;margin-top:26
       <p class="sub" style="margin-bottom:10px;">Esto no es personal — afecta a todos los dueños por igual. Los datos se guardan siempre, esto solo oculta la sección del todo (no es lo mismo que colapsarla con la flecha).</p>
       <div id="cfgSectionsWrap"></div>
     </div>
+
+    <h3 class="admin-subheading collapsible-header" data-target="cfg-sec-reparto"><span class="arrow">▾</span> Reparto: deuda en vez de negativo (general)</h3>
+    <div class="collapsible-content" id="cfg-sec-reparto">
+      <p class="sub" style="margin-bottom:10px;">Cuando un dueño invirtió más, otro puede quedar en negativo para retirar. Con esto activado, en vez de mostrar negativo, ese faltante se guarda como <b>deuda</b> y se descuenta automáticamente en el próximo cierre de caja. Afecta a todos los dueños por igual.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;">
+        <input type="checkbox" id="cfgDeudaMode" style="width:16px;height:16px;">
+        Guardar el negativo como deuda para el próximo cierre
+      </label>
+    </div>
   </div>
 
   <div id="ventasView" style="display:none;">
@@ -700,7 +709,7 @@ const DEFAULT_TIPS = [
 const DEFAULT_TITLE = 'Manual del Mall — Estado de la Propiedad';
 const DEFAULT_SUBTITLE = 'Guía de trabajos por categoría. Marcá "Ya lo hice" en cada tarea para arrancar su cooldown — cuando esté lista, te avisamos con sonido y notificación.';
 
-let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), hiddenSections: {}};
+let siteConfig = {title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE, tips: DEFAULT_TIPS.join('\n'), hiddenSections: {}, deudaMode: false};
 let jobPayOverrides = {};
 let configStarted = false;
 let ventasEnabledForMe = true; // preferencia personal, no global
@@ -728,7 +737,8 @@ function startPublicConfigListeners(){
       title: (v && v.title) || DEFAULT_TITLE,
       subtitle: (v && v.subtitle) || DEFAULT_SUBTITLE,
       tips: (v && v.tips) || DEFAULT_TIPS.join('\n'),
-      hiddenSections: (v && v.hiddenSections) || {}
+      hiddenSections: (v && v.hiddenSections) || {},
+      deudaMode: !!(v && v.deudaMode)
     };
     applySiteConfigToPage();
     applyCajaSectionVisibility();
@@ -737,8 +747,11 @@ function startPublicConfigListeners(){
       cfgTitleInput.value = siteConfig.title;
       document.getElementById('cfgSubtitle').value = siteConfig.subtitle;
       document.getElementById('cfgTips').value = siteConfig.tips;
+      const deudaCb = document.getElementById('cfgDeudaMode');
+      if(deudaCb) deudaCb.checked = siteConfig.deudaMode;
       renderCfgSectionsList();
     }
+    renderCajaResumen(); // el modo deuda cambia cómo se muestra el reparto
   });
 
   db.ref('jobPayOverrides').on('value', snap=>{
@@ -801,6 +814,11 @@ document.getElementById('cfgVentasEnabled').addEventListener('change', async (e)
   if(!currentUser) return;
   await db.ref('uiPrefs/'+currentUser.uid+'/ventasEnabled').set(e.target.checked);
   showToast(e.target.checked ? 'Vas a ver el botón en tu barra.' : 'Dejaste de verlo (solo para vos, no afecta a los demás).', '💾 Guardado');
+});
+
+document.getElementById('cfgDeudaMode').addEventListener('change', async (e)=>{
+  await db.ref('siteConfig/deudaMode').set(e.target.checked);
+  showToast(e.target.checked ? 'Modo deuda activado (para todos los dueños).' : 'Modo deuda desactivado.', '💾 Guardado');
 });
 
 function startConfigListeners(){
@@ -1831,6 +1849,7 @@ let ropaCache = {};
 let cajaActualCache = {amount:0};
 let cajaHistorialCache = {};
 let gastosExtraCache = {};
+let deudasCache = {}; // {ownerId: monto que arrastra como deuda al próximo cierre}
 
 // ====== SISTEMA GENÉRICO DE PRODUCTOS (Medicina, Tecnología, y las que se sumen después) ======
 const PRODUCT_CATEGORIES = [
@@ -1872,6 +1891,12 @@ function getSectionItems(section){
   let combined = [];
   section.sources.forEach(catId=>{
     (PRODUCT_ITEMS[catId]||[]).forEach(item=> combined.push({...item, catId}));
+  });
+  // Orden manual (campo order); los que no tienen order van al final, y ahí alfabético
+  combined.sort((a,b)=>{
+    const oa = (typeof a.order==='number') ? a.order : 1e9;
+    const ob = (typeof b.order==='number') ? b.order : 1e9;
+    return oa - ob || a.name.localeCompare(b.name);
   });
   return combined;
 }
@@ -2177,8 +2202,15 @@ function renderOwnersForm(){
   box.querySelectorAll('button[data-remove]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.remove;
-      if(!confirm(`¿Quitar a ${ownerName(id)}? Los registros viejos a su nombre van a mostrar "(dueño eliminado)".`)) return;
-      db.ref('caja/owners/'+id).remove();
+      const saldo = deudasCache[id] || 0;
+      let extra = '';
+      if(Math.abs(saldo) >= 1){
+        extra = saldo>0
+          ? `\n\n⚠ ${ownerName(id)} tiene una DEUDA pendiente de ${fmtMoneyCaja(saldo)}. Al quitarlo se cancela; revisá el próximo reparto porque puede descuadrar.`
+          : `\n\n⚠ A ${ownerName(id)} le DEBÍAN ${fmtMoneyCaja(-saldo)}. Al quitarlo se cancela ese crédito; revisá el próximo reparto porque puede descuadrar.`;
+      }
+      if(!confirm(`¿Quitar a ${ownerName(id)}? Los registros viejos a su nombre van a mostrar "(dueño eliminado)".${extra}`)) return;
+      db.ref().update({ ['caja/owners/'+id]: null, ['caja/deudas/'+id]: null });
     });
   });
 }
@@ -2239,7 +2271,7 @@ function startCajaListeners(){
 
     db.ref(paths.items).on('value', snap=>{
       const raw = snap.val() || {};
-      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0}));
+      PRODUCT_ITEMS[cat.id] = Object.keys(raw).map(key=>({key, name:raw[key].name, sell:raw[key].sell||0, buy:raw[key].buy||0, order:raw[key].order}));
       fillAbastItemSelect();
       updateAbastInversionPreview();
       const section = sectionForCategory(cat.id);
@@ -2325,6 +2357,11 @@ function startCajaListeners(){
   db.ref('caja/historial').on('value', snap=>{
     cajaHistorialCache = snap.val() || {};
     renderCajaHistorial(cajaHistorialCache);
+  });
+
+  db.ref('caja/deudas').on('value', snap=>{
+    deudasCache = snap.val() || {};
+    renderCajaResumen();
   });
 }
 
@@ -2446,13 +2483,15 @@ function renderRopaTable(){
   const roperos = roperosList();
   if(roperos.length===0){ wrap.innerHTML = '<div class="admin-empty">Sin roperos cargados, agregá el primero.</div>'; return; }
 
-  wrap.innerHTML = roperos.map(r=>`
-    <h3 class="admin-subheading collapsible-header" data-target="ropero-sec-${r.id}"><span class="arrow">▾</span> ${r.name}</h3>
+  wrap.innerHTML = roperos.map(r=>{
+    const enVenta = entries.filter(([k,v])=> String(v.ropero||'1')===String(r.id) && v.status==='Disponible').length;
+    return `
+    <h3 class="admin-subheading collapsible-header" data-target="ropero-sec-${r.id}"><span class="arrow">▾</span> ${r.name} <span style="font-weight:400;color:var(--text-dim);font-size:13px;">— ${enVenta} a la venta</span></h3>
     <div class="collapsible-content" id="ropero-sec-${r.id}">
       <div id="ropaTableWrap-${r.id}"></div>
       <button class="small-del-btn" data-action="delropero" data-roperoid="${r.id}" data-name="${r.name}" style="margin-top:8px;">Borrar este ropero</button>
     </div>
-  `).join('');
+  `;}).join('');
   wireAllCollapsibles();
 
   roperos.forEach(r => renderRoperoTable(r.id, entries, roperos));
@@ -2653,7 +2692,7 @@ function renderProductTable(section){
 
   if(items.length===0){ box.innerHTML = '<div class="admin-empty">Sin ítems cargados todavía.</div>'; }
   else{
-    const rows = items.map(item=>{
+    const rows = items.map((item, idx)=>{
       const stockCache = productStockCache[item.catId] || {};
       const st = stockCache[item.key] || {stock:0, ventaAcumulada:0, compraAcumulada:0};
       const catInfo = PRODUCT_CATEGORIES.find(c=>c.id===item.catId);
@@ -2668,7 +2707,11 @@ function renderProductTable(section){
             <input type="number" min="0" class="med-qty-input med-stock-input" style="width:70px;" data-cat="${item.catId}" data-key="${item.key}" value="${st.stock||0}">
             <button class="small-del-btn" data-action="stockup" data-cat="${item.catId}" data-key="${item.key}">+</button>
           </td>
-          <td><button class="small-del-btn" data-action="delitem" data-cat="${item.catId}" data-key="${item.key}">Quitar ítem</button></td>
+          <td style="white-space:nowrap;">
+            <button class="small-del-btn" data-action="itemup" data-cat="${item.catId}" data-key="${item.key}" ${idx===0?'disabled':''}>↑</button>
+            <button class="small-del-btn" data-action="itemdown" data-cat="${item.catId}" data-key="${item.key}" ${idx===items.length-1?'disabled':''}>↓</button>
+            <button class="small-del-btn" data-action="delitem" data-cat="${item.catId}" data-key="${item.key}">Quitar ítem</button>
+          </td>
         </tr>
       `;
     }).join('');
@@ -2697,6 +2740,22 @@ function renderProductTable(section){
           [paths.stock+'/'+btn.dataset.key]: null
         });
         showToast(`${item.name} eliminado.`, '🗑 Ítem borrado');
+      });
+    });
+
+    box.querySelectorAll('button[data-action="itemup"], button[data-action="itemdown"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = items.findIndex(i=> i.catId===btn.dataset.cat && i.key===btn.dataset.key);
+        const swapIdx = btn.dataset.action==='itemup' ? idx-1 : idx+1;
+        if(idx<0 || swapIdx<0 || swapIdx>=items.length) return;
+        const reordered = items.slice();
+        [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+        // Reasigna order secuencial (0,1,2...) a todos los ítems de la sección, en sus rutas
+        const updates = {};
+        reordered.forEach((it, i)=>{
+          updates[categoryPaths(it.catId).items+'/'+it.key+'/order'] = i;
+        });
+        db.ref().update(updates);
       });
     });
   }
@@ -2861,17 +2920,43 @@ function computeCajaReparto(){
   const pasivoEstimado = cajaRestante - productVentaTotal;
   const gananciaPorDueno = cajaRestante / n;
 
+  const deudaMode = !!siteConfig.deudaMode;
+
+  // saldoPrevio y nuevoSaldo: convención + = el dueño DEBE, − = LE DEBEN (crédito a favor)
   const perOwner = owners.map(o=>{
     const vendida = ropaEntries.filter(v=>v.owner===o.id && v.status==='Vendido').reduce((s,v)=>s+v.precio,0);
     const puestoAbast = abastEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
     const abastAjuste = puestoAbast - abastJustPart; // + le deben, − debe poner
     const puestoGasto = gastoEntries.filter(v=>v.owner===o.id).reduce((s,v)=>s+v.monto,0);
     const gastoAjuste = puestoGasto - gastoJustPart;
-    const retiro = vendida + gananciaPorDueno + abastAjuste + gastoAjuste;
-    return {id:o.id, name:o.name, vendida, puestoAbast, abastAjuste, puestoGasto, gastoAjuste, retiro};
+    const retiroBruto = vendida + gananciaPorDueno + abastAjuste + gastoAjuste;
+    const saldoPrevio = deudaMode ? (deudasCache[o.id] || 0) : 0;
+    const ajustado = retiroBruto - saldoPrevio; // lo que le tocaría este cierre ya saldando lo anterior
+    return {id:o.id, name:o.name, vendida, puestoAbast, abastAjuste, puestoGasto, gastoAjuste, retiroBruto, saldoPrevio, ajustado, retiro:ajustado, nuevoSaldo:0};
   });
 
-  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, productVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno};
+  if(deudaMode){
+    // Difiere AMBOS lados para que la plata cuadre con la caja real:
+    // los negativos retiran 0 y quedan debiendo; los positivos cobran solo lo que hay
+    // (reducidos a prorrata) y el resto les queda a favor.
+    const posSum = perOwner.reduce((s,o)=> s + (o.ajustado>0 ? o.ajustado : 0), 0);
+    const D = perOwner.reduce((s,o)=> s + (o.ajustado<0 ? -o.ajustado : 0), 0); // total diferido
+    perOwner.forEach(o=>{
+      if(o.ajustado < 0){
+        o.retiro = 0;
+        o.nuevoSaldo = -o.ajustado;            // queda debiendo (positivo)
+      } else if(o.ajustado > 0 && posSum > 0){
+        const credito = D * (o.ajustado / posSum);
+        o.retiro = o.ajustado - credito;
+        o.nuevoSaldo = -credito;               // le queda a favor (negativo)
+      } else {
+        o.retiro = 0;
+        o.nuevoSaldo = 0;
+      }
+    });
+  }
+
+  return {owners: perOwner, n, totalAbast, abastJustPart, totalGastos, gastoJustPart, productVentaTotal, cajaActual, cajaRestante, pasivoEstimado, gananciaPorDueno, deudaMode};
 }
 
 function fmtSigned(n){
@@ -2896,7 +2981,17 @@ function renderCajaResumen(){
     html += `<div class="r-row"><span>Ajuste de gastos extraordinarios — ${o.name}</span><span>${fmtSigned(o.gastoAjuste)}</span></div>`;
   });
   r.owners.forEach(o=>{
+    if(r.deudaMode && o.saldoPrevio>0){
+      html += `<div class="r-row"><span>Deuda arrastrada del cierre anterior — ${o.name}</span><span>${fmtSigned(-o.saldoPrevio)}</span></div>`;
+    } else if(r.deudaMode && o.saldoPrevio<0){
+      html += `<div class="r-row"><span>A favor arrastrado (le debían) — ${o.name}</span><span>${fmtSigned(-o.saldoPrevio)}</span></div>`;
+    }
     html += `<div class="r-row total"><span>${o.name} retira</span><span>${fmtMoneyCaja(o.retiro)}</span></div>`;
+    if(r.deudaMode && o.nuevoSaldo>0){
+      html += `<div class="r-row"><span>↳ Queda debiendo para el próximo cierre — ${o.name}</span><span>${fmtMoneyCaja(o.nuevoSaldo)}</span></div>`;
+    } else if(r.deudaMode && o.nuevoSaldo<0){
+      html += `<div class="r-row"><span>↳ Le queda a favor para el próximo cierre — ${o.name}</span><span>${fmtMoneyCaja(-o.nuevoSaldo)}</span></div>`;
+    }
   });
   box.innerHTML = html;
 }
@@ -2904,8 +2999,16 @@ function renderCajaResumen(){
 document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
   const r = computeCajaReparto();
   if(r.owners.length===0){ alert('Cargá al menos un dueño antes de repartir.'); return; }
-  const detalle = r.owners.map(o=>`${o.name} retira: ${fmtMoneyCaja(o.retiro)}`).join('\n');
-  const msg = `¿Confirmás el reparto?\n\n${detalle}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento y gastos extraordinarios actuales, y pone la caja en $0.`;
+  const detalle = r.owners.map(o=>{
+    let line = `${o.name} retira: ${fmtMoneyCaja(o.retiro)}`;
+    if(r.deudaMode && o.nuevoSaldo>0) line += ` (queda debiendo ${fmtMoneyCaja(o.nuevoSaldo)})`;
+    else if(r.deudaMode && o.nuevoSaldo<0) line += ` (le queda a favor ${fmtMoneyCaja(-o.nuevoSaldo)})`;
+    return line;
+  }).join('\n');
+  const extra = r.deudaMode
+    ? '\n\nModo deuda activado: nadie retira en negativo. Los faltantes quedan como deuda y lo que invirtió de más queda a favor; todo se salda en el próximo cierre.'
+    : '';
+  const msg = `¿Confirmás el reparto?\n\n${detalle}\n\nEsto marca la ropa vendida como cobrada, salda las deudas de abastecimiento y gastos extraordinarios actuales, y pone la caja en $0.${extra}`;
   if(!confirm(msg)) return;
 
   const retiros = {};
@@ -2943,6 +3046,12 @@ document.getElementById('cerrarCajaBtn').addEventListener('click', async ()=>{
     });
     updates[paths.ventas] = null;
   });
+  // Guardar/actualizar saldos arrastrados (solo en modo deuda). + = debe, − = le deben.
+  if(r.deudaMode){
+    r.owners.forEach(o=>{
+      updates['caja/deudas/'+o.id] = Math.abs(o.nuevoSaldo) >= 1 ? Math.round(o.nuevoSaldo) : null;
+    });
+  }
   updates['caja/actual'] = {amount:0, updatedAt: Date.now()};
   await db.ref().update(updates);
   showToast('Reparto registrado y caja reiniciada.', '💾 Listo');
